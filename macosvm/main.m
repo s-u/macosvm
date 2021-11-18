@@ -49,6 +49,7 @@ static const char *version = "0.1-1";
 
 - (void)virtualMachine:(VZVirtualMachine *)virtualMachine didStopWithError:(NSError *)error {
     NSLog(@"VM %@ didStopWithError: %@", virtualMachine, error);
+    [NSApp performSelectorOnMainThread:@selector(terminate:) withObject:self waitUntilDone:NO];
 }
 
 - (void)virtualMachine:(VZVirtualMachine *)virtualMachine  networkDevice:(VZNetworkDevice *)networkDevice
@@ -176,7 +177,7 @@ attachmentWasDisconnectedWithError:(NSError *)error {
             [window makeKeyAndOrderFront: view];
 
             if (![[NSRunningApplication currentApplication] isActive]) {
-                NSLog(@"Make appliocation active");
+                NSLog(@"Make application active");
                 [[NSRunningApplication currentApplication] activateWithOptions:NSApplicationActivateAllWindows];
             }
 
@@ -401,7 +402,7 @@ int main(int ac, char**av) {
                     break;
                 case 'r':
                 {
-                    char *val, *eov;
+                    char *val;
                     if (av[i][2]) val = av[i] + 2; else {
                         if (++i >= ac) {
                             fprintf(stderr, "ERROR: %s missing RAM specification\n", av[i - 1]);
@@ -409,18 +410,9 @@ int main(int ac, char**av) {
                         }
                         val = av[i];
                     }
-                    double vf = atof(val);
-                    eov = val;
-                    while ((*eov >= '0' && *eov <= '9') || *eov == '.') eov++;
-                    switch (*eov) {
-                        case 'g': vf *= 1024.0;
-                        case 'm': vf *= 1024.0;
-                        case 'k': vf *= 1024.0; break;
-                        case 0: break;
-                        default:
-                            fprintf(stderr, "ERROR: invalid RAM size qualifier '%c', must be k, m or g\n", *eov);
-                            return 1;
-                    }
+                    double vf = parse_size(val);
+                    if (vf < 0)
+                        return 1;
                     if (vf < 1024.0*1024.0*64.0) {
                         fprintf(stderr, "ERROR: invalid RAM size, must be at least 64m\n");
                         return 1;
