@@ -15,7 +15,7 @@ curl -LO https://updates.cdn-apple.com/2021FCSFall/fullrestores/002-23780/D3417F
 macosvm --disk disk.img,size=32g --aux aux.img --restore UniversalMac_12.0.1_21A559_Restore.ipsw vm.json
 
 ## start the created image with GUI:
-macosvm/macosvm -g vm.json
+macosvm -g vm.json
 ```
 
 After your started the VM it will go through the Apple Setup Assistant. Once done, I strongly recommend going to Sharing system preferences, setting a unique name and enabling Remote Login and Screen Sharing. Then you can shut down the VM (using Shut Down in the macOS guest). Note that the default is to use NAT networking and your VM will show up on your host's network (details below) so you can use Finder to connect to its screen even if you start without the GUI.
@@ -27,6 +27,8 @@ cp -c disk.img master.img
 ```
 
 Note the `-c` flag which will make a copy-on-write copy, i.e., the cloned image doesn't use any actual space on disk (if you use APFS). This allows you to store different modifications of your base operating system without duplicating storage space.
+
+See `macosvm -h` for a minimal help page.
 
 ### Details
 
