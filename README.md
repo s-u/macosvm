@@ -1,6 +1,9 @@
 ## macosvm
 `macosvm` is a command line tool which allows creating and running of virtual machines on macOS 12 (Monterey) using the new Virtualization framework. It has been primarily developed for running macOS guest opearting systems inside virtual machines on M1-based Macs (arm64) with macOS hosts to support CI/CD such as GitHub M1-based runners and our R builds.
 
+### Download
+See [releases](https://github.com/s-u/macosvm/releases) for downloads of released binaries (arm64 macOS 12 and higher only).
+
 ### Build
 The project can be built either with `xcodebuild` or `make`. The former requires Xcode installation while the latter only requires command line tools (see `xcode-select --install`).
 
