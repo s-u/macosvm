@@ -2,7 +2,7 @@
 
 #import "VMInstance.h"
 
-static const char *version = "0.1-1";
+static const char *version = "0.1-2";
 
 @interface App : NSObject <NSApplicationDelegate, NSWindowDelegate, VZVirtualMachineDelegate> {
 @public
@@ -260,11 +260,61 @@ static double parse_size(const char *val) {
 #include <stdio.h>
 #include <sys/stat.h>
 
+/* simple low-level registry of files to unlink on exit */
+#define MAX_UNLINKS 32
+static char *unlink_me[MAX_UNLINKS];
+void add_unlink_on_exit(const char *fn) {
+    int i = 0;
+    while (i < MAX_UNLINKS) {
+        if (!unlink_me[i]) {
+            unlink_me[i] = strdup(fn);
+            return;
+        }
+        i++;
+    }
+    fprintf(stderr, "ERROR: too many ephemeral files, aborting\n");
+    exit(1);
+}
+static void cleanup() {
+    int i = 0;
+    while (i < MAX_UNLINKS) {
+        if (unlink_me[i]) {
+            printf("INFO: removing ephemeral clone %s\n", unlink_me[i]);
+            unlink(unlink_me[i]);
+            free(unlink_me[i]);
+            unlink_me[i] = 0;
+        }
+        i++;
+    }
+}
+
+#include <signal.h>
+
+static sig_t orig_INT;
+static sig_t orig_TERM;
+static sig_t orig_KILL;
+
+static void sig_handler(int sig) {
+    cleanup();
+    /* restore original behavior */
+    signal(sig, (sig == SIGINT) ? orig_INT : ((sig == SIGTERM) ? orig_TERM : ((sig == SIGKILL) ? orig_KILL : SIG_DFL)));
+    raise(sig);
+}
+
+static void setup_unlink_handling() {
+    /* regular termination */
+    atexit(cleanup);
+    /* signal termination */
+    orig_INT = signal(SIGINT, sig_handler);
+    orig_TERM= signal(SIGTERM, sig_handler);
+    orig_KILL= signal(SIGKILL, sig_handler);
+}
+
 int main(int ac, char**av) {
     App *main = [[App alloc] init];
     VMSpec *spec = [[VMSpec alloc] init];
     main->spec = spec;
-    BOOL create = NO;
+    BOOL create = NO, ephemeral = NO;
     NSString *configPath = nil;
 
     /* FIXME: the parameters are a mess, in particular the config overrides
@@ -276,6 +326,9 @@ int main(int ac, char**av) {
         if (av[i][0] == '-') {
             if (av[i][1] == 'g' || !strcmp(av[i], "--gui")) {
                 main.useGUI = YES; continue;
+            }
+            if (!strcmp(av[i], "--ephemeral")) {
+                ephemeral = YES; continue;
             }
             if (!strcmp(av[i], "--restore")) {
                 if (++i >= ac) {
@@ -452,11 +505,18 @@ int main(int ac, char**av) {
             }
         }
 
-    if (!configPath) {
+    if (create && !configPath) {
         fprintf(stderr, "\nERROR: no configuration path supplied, try -h for help\n");
         return 1;
     }
     main.configPath = configPath;
+
+    if (ephemeral) {
+        /* register the callback first such that if soemthing fails in the middle
+           the already created clones can be unlinked */
+        setup_unlink_handling();
+        [spec cloneAllStorage];
+    }
 
     [NSApplication sharedApplication];
     NSApp.delegate = main;

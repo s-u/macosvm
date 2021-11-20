@@ -8,6 +8,8 @@
     storage = displays = networks = nil;
     cpus = 0;
     ram = 0;
+    os = nil;
+    bootInfo = nil;
     audio = NO;
     _restoreImage = nil;
     return self;
@@ -22,6 +24,8 @@
     hardwareModelData = hardwareModel ? [[NSData alloc] initWithBase64EncodedString:hardwareModel options:0] : nil;
     NSString *machineIdentifier = root[@"machineId"];
     machineIdentifierData = machineIdentifier ? [[NSData alloc] initWithBase64EncodedString:machineIdentifier options:0] : nil;
+    os = root[@"os"];
+    hardwareModelData = hardwareModel ? [[NSData alloc] initWithBase64EncodedString:hardwareModel options:0] : nil;
     id tmp = root[@"cpus"];
     if (tmp && [tmp isKindOfClass:[NSNumber class]])
         cpus = (int) [(NSNumber*)tmp integerValue];
@@ -31,6 +35,9 @@
     tmp = root[@"storage"];
     if (tmp && [tmp isKindOfClass:[NSArray class]])
         storage = tmp;
+    tmp = root[@"bootInfo"];
+    if (tmp && [tmp isKindOfClass:[NSDictionary class]])
+        bootInfo = tmp;
     tmp = root[@"networks"];
     if (tmp && [tmp isKindOfClass:[NSArray class]])
         networks = tmp;
@@ -43,6 +50,7 @@
 - (NSError*) writeToJSON: (NSOutputStream*) jsonStream {
     NSDictionary *src = @{
         @"version": @1,
+        @"os" : os ? os : @"macos",
         @"cpus": [NSNumber numberWithInteger: cpus],
         @"ram": [NSNumber numberWithUnsignedLong: ram],
         @"storage" : storage ? storage : [NSArray array],
@@ -52,6 +60,8 @@
     [root setDictionary:src];
     if (hardwareModelData)
         [root setObject:[hardwareModelData base64EncodedStringWithOptions:0] forKey:@"hardwareModel"];
+    if (bootInfo)
+        [root setObject:bootInfo forKey:@"bootInfo"];
     if (machineIdentifierData)
         [root setObject:[machineIdentifierData base64EncodedStringWithOptions:0] forKey:@"machineId"];
     if (displays)
@@ -112,9 +122,101 @@
     storage = storage ? [storage arrayByAddingObject:root] : @[root];
 }
 
+#include <sys/clonefile.h>
+#include <unistd.h>
+#include <sys/errno.h>
+
+void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more safe ... ;) */
+
+/* this is not the most elegant design .. but we need to re-design the loading of options
+   otherwise we really have to do it here so we can cover both the JSON specs as well
+   as disks added by the storage API calls .. and we want to allow opt-outs, but for now
+   it does the job we need: run ephemeral runners .. */
+- (void) cloneAllStorage {
+    if (storage) {
+        NSMutableArray *cloned = [[NSMutableArray alloc] init];
+        for (NSDictionary *d in storage) {
+            NSDictionary *e = d;
+            id tmp;
+            NSString *path = d[@"file"];
+            BOOL ro = (d[@"readOnly"] && [d[@"readOnly"] boolValue]) ? YES : NO;
+            if ((tmp = d[@"type"]) && path && !ro) {
+                if ([tmp isEqualToString:@"disk"] || [tmp isEqualToString:@"aux"]) {
+                    NSString *target = [path stringByAppendingFormat: @"-clone-%ld", (long) getpid()];
+                    NSLog(@" . cloning %@ to ephemeral %@", path, target);
+                    if (clonefile([path UTF8String], [target UTF8String], 0)) {
+                        NSString *desc = [NSString stringWithFormat:@"Failed to clone '%@' to '%@': [errno=%d] %s", path, target, errno, strerror(errno)];
+                        @throw [NSException exceptionWithName:@"FSClone" reason:desc userInfo:nil];
+                    }
+                    add_unlink_on_exit([target UTF8String]);
+                    NSMutableDictionary *emu = [[NSMutableDictionary alloc] initWithDictionary:d];
+                    emu[@"file"] = target;
+                    e = emu;
+                }
+            }
+            [cloned addObject: e];
+        }
+        storage = cloned;
+    }
+}
+
+/* this is a hack to allow booting macOS without config files, extract
+   ECID from the aux disk. This is purely empirical so may break
+   with future versions of macOS */
+- (NSData*) inferMachineIdFromAuxFile: (NSString*) path {
+#define ECID_SIG_LEN 7
+#define ECID_LEN     8
+    /* We're looking for (len = 4) "ECID" (type = 2) (len = 8) [<ecid>] */
+    NSData *ecidSig = [NSData dataWithBytes:"\04ECID\02\010" length: ECID_SIG_LEN];
+    NSFileHandle *f = [NSFileHandle fileHandleForReadingAtPath:path];
+    NSError *err;
+    uint64_t ecid = 0;
+    if (!f)
+        return nil;
+
+    /* Attempt #1: use known location */
+    if ([f seekToOffset: 0x6c804 error:&err]) {
+        NSData *data = [f readDataUpToLength: ECID_SIG_LEN error:&err], *ecidData;
+        if ([data isEqualToData: ecidSig] && /* match! */
+            (ecidData = [f readDataUpToLength: ECID_LEN error:&err]) &&
+            ecidData.length == ECID_LEN)
+            memcpy(&ecid, ecidData.bytes, ECID_LEN);
+    }
+
+    /* Attempt #2: search and pray .. */
+    if (!ecid && [f seekToOffset:0 error:&err]) { /* rewind */
+        /* we're lazy, aux is typically 32M so do it in memory for simplicity */
+        NSData *data = [f readDataToEndOfFileAndReturnError:&err];
+        NSRange r;
+        if (data && (r = [data rangeOfData: ecidSig options:0 range: NSMakeRange(0, data.length)]).length) {
+            NSData *ecidData = [data subdataWithRange: NSMakeRange(r.location + r.length, ECID_LEN)];
+            if (ecidData)
+                memcpy(&ecid, ecidData.bytes, ECID_LEN);
+        }
+    }
+
+    [f closeAndReturnError:&err];
+
+    if (ecid) {
+        ecid = CFSwapInt64HostToBig(ecid);
+        NSDictionary *payload = @{
+            @"ECID": @(ecid)
+        };
+        NSLog(@" + ECID obtained from aux file: 0x%016lx (%lu)", (unsigned long)ecid, (unsigned long)ecid);
+        return [NSPropertyListSerialization dataWithPropertyList: payload
+                                                          format: NSPropertyListBinaryFormat_v1_0
+                                                         options: 0
+                                                           error: &err];
+    }
+    NSLog(@"WARNING: ECID not known and cannot be inferred from auxiliary storage!");
+    return nil;
+}
+
 - (instancetype) configure {
-    NSLog(@"%@ - configure for %@", self, self.restoreImage ? @"restore" : @"run");
-    if (self.restoreImage) {
+    if (!os)
+        os = @"macos";
+    NSLog(@"%@ - configure for %@, OS: %@", self, self.restoreImage ? @"restore" : @"run", os);
+    if ([os isEqualToString:@"macos"] && self.restoreImage) {
         VZMacOSRestoreImage *img = self.restoreImage;
         VZMacOSConfigurationRequirements *req = [img mostFeaturefulSupportedConfiguration];
         hardwareModelData = req.hardwareModel.dataRepresentation;
@@ -138,7 +240,45 @@
     if (!ram)
         @throw [NSException exceptionWithName:@"VMConfigRAM" reason:@"RAM size not specified" userInfo:nil];
 
-    self.bootLoader = [[VZMacOSBootLoader alloc] init];
+    if ([os isEqualToString:@"macos"]) {
+        self.bootLoader = [[VZMacOSBootLoader alloc] init];
+    } else {
+        NSURL *initrd = nil, *kernel = nil;
+        NSString *params = nil;
+        /* look for initrd */
+        if (storage) for (NSDictionary *d in storage) {
+                id tmp;
+                NSString *path = d[@"file"];
+                NSURL *url = nil;
+                if ((tmp = d[@"url"])) url = [NSURL URLWithString:tmp];
+                if ((tmp = d[@"type"]) && (url || path) && [tmp isEqualToString:@"initrd"]) {
+                    if (initrd)
+                        fprintf(stderr, "WARNING: initrd specified more than once, using the first instance\n");
+                    else
+                        initrd = url ? url : [NSURL fileURLWithPath:path];
+                }
+            }
+        if (bootInfo) {
+            NSString *kpath = bootInfo[@"kernel"];
+            if (kpath)
+                kernel = [NSURL fileURLWithPath:kpath];
+            params = bootInfo[@"parameters"];
+        }
+        if (!kernel)
+            @throw [NSException exceptionWithName:@"VMLinuxConfig" reason:@"Missing kernel path specification" userInfo:nil];
+        NSLog(@" + Linux kernel %@", kernel);
+        VZLinuxBootLoader *bootLoader = [[VZLinuxBootLoader alloc] initWithKernelURL: kernel];
+        if (params) {
+            bootLoader.commandLine = params;
+            NSLog(@" + kernel boot parameters: %@", params);
+        }
+        if (initrd) {
+            bootLoader.initialRamdiskURL = initrd;
+            NSLog(@" + inital RAM disk: %@", initrd);
+        }
+        self.bootLoader = bootLoader;
+    }
+
     self.entropyDevices = @[[[VZVirtioEntropyDeviceConfiguration alloc] init]];
 
     NSMutableArray *netList = [NSMutableArray arrayWithCapacity: networks ? [networks count] : 1];
@@ -212,7 +352,7 @@
         id tmp;
         NSString *path = d[@"file"];
         NSURL *url = nil;
-        BOOL ro = NO;
+        BOOL ro = (d[@"readOnly"] && [d[@"readOnly"] boolValue]) ? YES : NO;
         if ((tmp = d[@"url"])) url = [NSURL URLWithString:tmp];
         if ((tmp = d[@"type"]) && (url || path)) {
             if ([tmp isEqualToString:@"disk"]) {
@@ -231,6 +371,8 @@
                 if (self.restoreImage)
                     useExisting = NO;
                 NSLog(@" + %@ aux storage %@", useExisting ? @"existing" : @"new", path);
+                if (useExisting && path && !machineIdentifierData)
+                    machineIdentifierData = [self inferMachineIdFromAuxFile: path];
                 VZMacAuxiliaryStorage *aux = useExisting ?
                 [[VZMacAuxiliaryStorage alloc] initWithContentsOfURL: imageURL] :
                 [[VZMacAuxiliaryStorage alloc] initCreatingStorageAtURL: imageURL hardwareModel:hwm options:VZMacAuxiliaryStorageInitializationOptionAllowOverwrite error:&err];

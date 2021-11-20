@@ -4,13 +4,17 @@
 @interface VMSpec : VZVirtualMachineConfiguration {
     NSData  *machineIdentifierData, *hardwareModelData;
     NSArray *storage;
-    /* type: disk / aux
+    /* type: disk / aux / initrd
        file: / url:
        readOnly: true/false */
     NSArray *displays;
     /* width:  height:  dpi: */
     NSArray *networks;
     /* type: */
+    NSString *os;
+    /* macos / linux */
+    NSDictionary *bootInfo;
+    /* Linux: kernel, parameters */
 @public
     int cpus;
     unsigned long ram;
@@ -28,6 +32,7 @@
 - (void) addNetwork: (NSString*) type;
 - (void) addNetwork: (NSString*) type interface: (NSString*) iface;
 - (instancetype) configure;
+- (void) cloneAllStorage;
 
 @end
 
