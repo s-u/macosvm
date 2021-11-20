@@ -252,8 +252,11 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     if (!ram)
         @throw [NSException exceptionWithName:@"VMConfigRAM" reason:@"RAM size not specified" userInfo:nil];
 
+    VZMacPlatformConfiguration *macPlatform = nil;
+
     if ([os isEqualToString:@"macos"]) {
         self.bootLoader = [[VZMacOSBootLoader alloc] init];
+        macPlatform = [[VZMacPlatformConfiguration alloc] init];
     } else {
         NSURL *initrd = nil, *kernel = nil;
         NSString *params = nil;
@@ -350,14 +353,12 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     self.keyboards = @[[[VZUSBKeyboardConfiguration alloc] init]];
     self.pointingDevices = @[[[VZUSBScreenCoordinatePointingDeviceConfiguration alloc] init]];
 
-    VZMacPlatformConfiguration *platform = [[VZMacPlatformConfiguration alloc] init];
+    VZMacHardwareModel *hwm = hardwareModelData ? [[VZMacHardwareModel alloc] initWithDataRepresentation:hardwareModelData] : nil;
 
-    if (!hardwareModelData) {
+    if (macPlatform && !hardwareModelData) {
         fprintf(stderr, "WARNING: no hardware information found, using arm64 macOS 12.0.0 specs\n");
         hardwareModelData = [[NSData alloc] initWithBase64EncodedString: @"YnBsaXN0MDDTAQIDBAUGXxAZRGF0YVJlcHJlc2VudGF0aW9uVmVyc2lvbl8QD1BsYXRmb3JtVmVyc2lvbl8QEk1pbmltdW1TdXBwb3J0ZWRPUxQAAAAAAAAAAAAAAAAAAAABEAKjBwgIEAwQAAgPKz1SY2VpawAAAAAAAAEBAAAAAAAAAAkAAAAAAAAAAAAAAAAAAABt" options:0];
     }
-
-    VZMacHardwareModel *hwm = hardwareModelData ? [[VZMacHardwareModel alloc] initWithDataRepresentation:hardwareModelData] : nil;
 
     NSMutableArray *std = [NSMutableArray arrayWithCapacity:storage ? [storage count] : 1];
     if (storage) for (NSDictionary *d in storage) {
@@ -382,15 +383,18 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 BOOL useExisting = url || (path && [[NSFileManager defaultManager] fileExistsAtPath:path]);
                 if (self.restoreImage)
                     useExisting = NO;
-                NSLog(@" + %@ aux storage %@", useExisting ? @"existing" : @"new", path);
-                if (useExisting && path && !machineIdentifierData)
-                    machineIdentifierData = [self inferMachineIdFromAuxFile: path];
-                VZMacAuxiliaryStorage *aux = useExisting ?
-                [[VZMacAuxiliaryStorage alloc] initWithContentsOfURL: imageURL] :
-                [[VZMacAuxiliaryStorage alloc] initCreatingStorageAtURL: imageURL hardwareModel:hwm options:VZMacAuxiliaryStorageInitializationOptionAllowOverwrite error:&err];
-                if (err)
-                    @throw [NSException exceptionWithName:@"VMConfigAuxStorageError" reason:[err description] userInfo:nil];
-                platform.auxiliaryStorage = aux;
+                if (macPlatform) {
+                    NSLog(@" + %@ aux storage %@", useExisting ? @"existing" : @"new", path);
+                    if (useExisting && path && !machineIdentifierData)
+                        machineIdentifierData = [self inferMachineIdFromAuxFile: path];
+                    VZMacAuxiliaryStorage *aux = useExisting ?
+                        [[VZMacAuxiliaryStorage alloc] initWithContentsOfURL: imageURL] :
+                        [[VZMacAuxiliaryStorage alloc] initCreatingStorageAtURL: imageURL hardwareModel:hwm options:VZMacAuxiliaryStorageInitializationOptionAllowOverwrite error:&err];
+                    if (err)
+                        @throw [NSException exceptionWithName:@"VMConfigAuxStorageError" reason:[err description] userInfo:nil];
+                    macPlatform.auxiliaryStorage = aux;
+                } else
+                    NSLog(@"WARNING: auxiliary storage is only supported for macOS guests, ignoring\n");
             }
         }
     }
@@ -407,16 +411,20 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
       self.audioDevices = @[soundDevice];
     }
 
-    if (hwm) platform.hardwareModel = hwm;
+    if ([os isEqualToString:@"macos"]) {
+        if (hwm) macPlatform.hardwareModel = hwm;
 
-    /* either load existing or create new one */
-    VZMacMachineIdentifier *mid = [VZMacMachineIdentifier alloc];
-    mid = (machineIdentifierData) ? [mid initWithDataRepresentation:machineIdentifierData] : [mid init];
-    platform.machineIdentifier = mid;
-    if (!machineIdentifierData)
-        machineIdentifierData = mid.dataRepresentation;
+        /* either load existing or create new one */
+        VZMacMachineIdentifier *mid = [VZMacMachineIdentifier alloc];
+        mid = (machineIdentifierData) ? [mid initWithDataRepresentation:machineIdentifierData] : [mid init];
+        macPlatform.machineIdentifier = mid;
+        if (!machineIdentifierData)
+            machineIdentifierData = mid.dataRepresentation;
 
-    self.platform = platform;
+        self.platform = macPlatform;
+    } else { /* generic platform */
+        self.platform = [[VZGenericPlatformConfiguration alloc] init];
+    }
 
     NSLog(@" + %d CPUs", (int) cpus);
     self.CPUCount = cpus;
