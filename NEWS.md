@@ -6,7 +6,7 @@
 
 * added heuristic to detect ECID from the auxiliary storage if it is not supplied by the configuration file
 
-* make the configuration file optional. It is now possible to start VMs simply by specifying the desired CPU/RAM and disk images and `macosvm` will try to infer all necessary settings automatically. I.e., if you have existing disk images `aux.img` and `disk.img` from previously restored/created VM, you can uset he following to start it:
+* make the configuration file optional. It is now possible to start VMs simply by specifying the desired CPU/RAM and disk images and `macosvm` will try to infer all necessary settings automatically. I.e., if you have existing disk images `aux.img` and `disk.img` from previously restored/created VM, you can use the following to start it:
   ```
   macosvm -g --disk disk.img --aux aux.img -c 2 -r 4g
   ```
