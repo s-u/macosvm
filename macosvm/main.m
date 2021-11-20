@@ -346,8 +346,9 @@ int main(int ac, char**av) {
             if (!strcmp(av[i], "--init")) {
                 create = YES; continue;
             }
-            if (!strcmp(av[i], "--disk") || !strcmp(av[i], "--aux")) {
+            if (!strcmp(av[i], "--disk") || !strcmp(av[i], "--aux") || !strcmp(av[i], "--initrd")) {
                 BOOL readOnly = NO;
+                BOOL keep = NO;
                 size_t create_size = 0;
                 char *c, *dop;
                 if (++i >= ac) {
@@ -360,6 +361,8 @@ int main(int ac, char**av) {
                     *dop = 0; dop++;
                     if (!strncmp(dop, "ro", 2))
                         readOnly = YES;
+                    else if (!strncmp(dop, "keep", 2))
+                        keep = YES;
                     else if (!strncmp(dop, "size=", 5)) {
                         double sz = parse_size(dop + 5);
                         if (sz < 0)
@@ -393,11 +396,14 @@ int main(int ac, char**av) {
                     }
                     fclose(f);
                 }
-                printf("INFO: add storage '%s' type '%s' %s\n", av[i],
-                       (av[i - 1][2] == 'a') ? "aux" : "disk", readOnly ? "read-only" : "read-write");
+                NSMutableArray *options = [[NSMutableArray alloc] init];
+                printf("INFO: add storage '%s' type '%s' %s %s\n", av[i],
+                       av[i - 1] + 2, readOnly ? "read-only" : "read-write", keep ? "keep" : "");
+                if (readOnly) [options addObject:@"readOnly"];
+                if (keep) [options addObject:@"keep"];
                 [spec addFileStorage:[NSString stringWithUTF8String:av[i]]
-                                type:(av[i - 1][2] == 'a') ? @"aux" : @"disk"
-                            readOnly:readOnly];
+                                type:[NSString stringWithUTF8String:av[i - 1] + 2]
+                             options:options];
                 continue;
             }
             if (!strcmp(av[i], "--version")) {

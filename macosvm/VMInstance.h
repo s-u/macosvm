@@ -27,6 +27,7 @@
 - (NSError *) readFromJSON: (NSInputStream*) jsonStream;
 - (NSError*) writeToJSON: (NSOutputStream*) jsonStream;
 - (void) addFileStorage: (NSString*) path type: (NSString*) type readOnly: (BOOL) ro;
+- (void) addFileStorage: (NSString*) path type: (NSString*) type options: (NSArray*) options;
 - (void) addDefaults;
 - (void) addDisplayWithWidth: (int) width height: (int) height dpi: (int) dpi;
 - (void) addNetwork: (NSString*) type;

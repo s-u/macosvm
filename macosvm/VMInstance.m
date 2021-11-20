@@ -122,6 +122,17 @@
     storage = storage ? [storage arrayByAddingObject:root] : @[root];
 }
 
+- (void) addFileStorage: (NSString*) path type: (NSString*) type options: (NSArray*) options {
+    NSDictionary *initial = @{
+        @"type" : type,
+        @"file" : path
+    };
+    NSMutableDictionary *root = [NSMutableDictionary dictionaryWithDictionary:initial];
+    for (NSString *option in options)
+        [root addObject: @(YES) forKey: option];
+    storage = storage ? [storage arrayByAddingObject:root] : @[root];
+}
+
 #include <sys/clonefile.h>
 #include <unistd.h>
 #include <sys/errno.h>
@@ -140,7 +151,8 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
             id tmp;
             NSString *path = d[@"file"];
             BOOL ro = (d[@"readOnly"] && [d[@"readOnly"] boolValue]) ? YES : NO;
-            if ((tmp = d[@"type"]) && path && !ro) {
+            BOOL keep = (d[@"keep"] && [d[@"keep"] boolValue]) ? YES : NO;
+            if ((tmp = d[@"type"]) && path && !ro && !keep) {
                 if ([tmp isEqualToString:@"disk"] || [tmp isEqualToString:@"aux"]) {
                     NSString *target = [path stringByAppendingFormat: @"-clone-%ld", (long) getpid()];
                     NSLog(@" . cloning %@ to ephemeral %@", path, target);
