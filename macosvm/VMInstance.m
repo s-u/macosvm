@@ -129,7 +129,7 @@
     };
     NSMutableDictionary *root = [NSMutableDictionary dictionaryWithDictionary:initial];
     for (NSString *option in options)
-        [root addObject: @(YES) forKey: option];
+        [root setValue: @(YES) forKey: option];
     storage = storage ? [storage arrayByAddingObject:root] : @[root];
 }
 
@@ -257,7 +257,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     if ([os isEqualToString:@"macos"]) {
         self.bootLoader = [[VZMacOSBootLoader alloc] init];
         macPlatform = [[VZMacPlatformConfiguration alloc] init];
-    } else {
+    } else if ([os isEqualToString:@"linux"]) {
         NSURL *initrd = nil, *kernel = nil;
         NSString *params = nil;
         /* look for initrd */
@@ -292,6 +292,16 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
             NSLog(@" + inital RAM disk: %@", initrd);
         }
         self.bootLoader = bootLoader;
+
+        VZVirtioConsoleDeviceSerialPortConfiguration *serial = [[VZVirtioConsoleDeviceSerialPortConfiguration alloc] init];
+        VZFileHandleSerialPortAttachment *sata = [[VZFileHandleSerialPortAttachment alloc]
+                                                     initWithFileHandleForReading: [NSFileHandle fileHandleWithStandardInput]
+                                                             fileHandleForWriting: [NSFileHandle fileHandleWithStandardOutput]];
+        serial.attachment = sata;
+        self.serialPorts = @[ serial ];
+    } else {
+        NSLog(@"ERROR: unsupported os specification '%@', can only handle 'macos' and 'linux'.", os);
+        @throw [NSException exceptionWithName:@"VMConfig" reason:@"Unsupported os specification" userInfo:nil];
     }
 
     self.entropyDevices = @[[[VZVirtioEntropyDeviceConfiguration alloc] init]];
