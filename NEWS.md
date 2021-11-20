@@ -2,7 +2,7 @@
 
 ### 0.1-2
 
-* added `--ephemeral` flag: when specified, all (read-write) disks (including auxiliary) will be cloned (see `man clonefile`) prior to starting the VM (by appending `-clone-<pid>` to their paths) and the clones are used instead of the original. Upon termination all clones are deleted. This is functionally similar to the `--rm` flag in Docker. IMPORTANT: you will lose any changes to the mounted disks made by the VM. This is intended for runners that pick up work, do something and then post the results somewhere, but don't keep them locally. `macosvm` attempts to clean up clones even on abnormal termination where possible.
+* added `--ephemeral` flag: when specified, all (read-write) disks (including auxiliary) will be cloned (see `man clonefile`) prior to starting the VM (by appending `-clone-<pid>` to their paths) and the clones are used instead of the original. Upon termination all clones are deleted. This is functionally similar to the `--rm` flag in Docker. IMPORTANT: you will lose any changes to the mounted disks made by the VM. This is intended for runners that pick up work, do something and then post the results somewhere, but don't keep them locally. `macosvm` attempts to clean up clones even on abnormal termination where possible. Individual disks can specify `keep` option which prevents them from being cloned in the ephemeral mode, e.g.: `--disk results.img,keep` will cause `results.img` to be used directly and modified by the VM even if `--ephemeral` is specified.
 
 * added heuristic to detect ECID from the auxiliary storage if it is not supplied by the configuration file
 
