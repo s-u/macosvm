@@ -1,5 +1,10 @@
 #import "VMInstance.h"
 
+/* for cloneAllStorage */
+#include <sys/clonefile.h>
+#include <unistd.h>
+#include <sys/errno.h>
+
 @implementation VMSpec
 
 - (instancetype) init {
@@ -132,10 +137,6 @@
         [root setValue: @(YES) forKey: option];
     storage = storage ? [storage arrayByAddingObject:root] : @[root];
 }
-
-#include <sys/clonefile.h>
-#include <unistd.h>
-#include <sys/errno.h>
 
 void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more safe ... ;) */
 
