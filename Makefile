@@ -4,6 +4,8 @@ mkfile_dir := $(dir $(mkfile_path))
 local_bin = /usr/local/bin/
 name = macosvm
 
+path := $(local_bin)$(name)
+
 build:
 	make -C $(name) $(name)
 
@@ -13,7 +15,7 @@ $(local_bin):
 		sudo mkdir  $(local_bin) && \
 		echo "Done" )
 
-install: | $(local_bin) $(local_bin)$(name)
+$(path): $(local_bin) build
 	cd  $(mkfile_dir)$(name) && \
 		chmod a+x ./$(name)	&& \
 		sudo cp -f ./$(name) $(local_bin) 
@@ -21,5 +23,11 @@ install: | $(local_bin) $(local_bin)$(name)
 clean:
 	make -C $(name) clean
 
-.PHONY: all 
+uninstall:
+	sudo rm -f $(path)
+
+install:  $(path)
+
+.PHONY: all install uninstall
+
 all: build install 
