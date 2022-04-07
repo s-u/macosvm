@@ -17,7 +17,8 @@
     bootInfo = nil;
     audio = NO;
     _restoreImage = nil;
-    pty = use_serial = NO;
+    use_serial = YES;
+    pty = NO;
     ptyPath = nil;
     return self;
 }
