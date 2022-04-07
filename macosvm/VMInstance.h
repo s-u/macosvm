@@ -15,10 +15,12 @@
     /* macos / linux */
     NSDictionary *bootInfo;
     /* Linux: kernel, parameters */
+
+    NSString *ptyPath; /* internally generated */
 @public
     int cpus;
     unsigned long ram;
-    BOOL audio;
+    BOOL audio, use_serial, pty;
 }
 
 @property (strong) VZMacOSRestoreImage *restoreImage;

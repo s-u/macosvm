@@ -2,7 +2,7 @@
 
 #import "VMInstance.h"
 
-static const char *version = "0.1-2";
+static const char *version = "0.1-3";
 
 @interface App : NSObject <NSApplicationDelegate, NSWindowDelegate, VZVirtualMachineDelegate> {
 @public
@@ -166,6 +166,9 @@ attachmentWasDisconnectedWithError:(NSError *)error {
                 menuItem = [[NSMenuItem alloc] initWithTitle:@"Zoom" action:@selector(performZoom:) keyEquivalent:@""]; [menu addItem:menuItem];
                 menuItem = [[NSMenuItem alloc] initWithTitle:@"Close Window" action:@selector(performClose:) keyEquivalent:@"w"]; [menu addItem:menuItem];
 
+               menuItem = [[NSMenuItem alloc] initWithTitle:@"Copy" action:@selector(copy:) keyEquivalent:@"c"]; [menu addItem:menuItem];
+               menuItem = [[NSMenuItem alloc] initWithTitle:@"Paste" action:@selector(paste:) keyEquivalent:@"v"]; [menu addItem:menuItem];
+
                 menuItem = [[NSMenuItem alloc] initWithTitle:@"Window" action:nil keyEquivalent:@""];
                 [menuItem setSubmenu:menu];
 
@@ -317,6 +320,7 @@ int main(int ac, char**av) {
     BOOL create = NO, ephemeral = NO;
     NSString *configPath = nil;
 
+    spec->use_serial = YES; /* we default to registering a serial console */
     /* FIXME: the parameters are a mess, in particular the config overrides
        everything that is defined there which is probably not a good idea.
        It would be better to have the parameters create a config and merge
@@ -346,6 +350,12 @@ int main(int ac, char**av) {
             if (!strcmp(av[i], "--init")) {
                 create = YES; continue;
             }
+	    if (!strcmp(av[i], "--pty")) {
+		spec->use_serial = spec->pty = YES; continue;
+	    }
+	    if (!strcmp(av[i], "--no-serial")) {
+		spec->use_serial = NO; continue;
+	    }
             if (!strcmp(av[i], "--disk") || !strcmp(av[i], "--aux") || !strcmp(av[i], "--initrd")) {
                 BOOL readOnly = NO;
                 BOOL keep = NO;
@@ -444,7 +454,28 @@ int main(int ac, char**av) {
                 continue;
             }
             switch(av[i][1]) {
-                case 'h': printf("\n Usage: %s [-g|--[no-]gui] [--[no-]audio] [--restore <path>] [--disk <path>[,ro][,size=<spec>]]\n           [--aux <path>] [--net <spec>] [-c <cpu>] [-m <ram>] <config.json>\n        %s --version\n        %s -h\n\n --restore requires path to ipsw image and will create aux as well as the configuration file.\n If no CPU/RAM is specified then image's minimal settings are used.\n\n If no --restore is performed then settings are read from the configuration file\n and only --gui / --audio options are honored.\n Size specifications allow suffix k, m and g for the powers of 1024.\n\n Examples:\n # create a new VM with 32Gb disk image and macOS 12:\n %s --disk disk.img,size=32g --aux aux.img --restore UniversalMac_12.0.1_21A559_Restore.ipsw vm.json\n # start the created image with GUI:\n %s -g vm.json\n\n Experimental, use at your own risk!\n\n", av[0], av[0], av[0], av[0], av[0]); return 0;
+                case 'h': printf("\n\
+ Usage: %s [-g|--[no-]gui] [--[no-]audio] [--restore <path>] [--ephemeral]\n\
+           [--disk <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
+           [--net <spec>] [-c <cpu>] [-m <ram>] [--no-serial] [--pty] <config.json>\n\
+        %s --version\n\
+        %s -h\n\
+\n\
+ --restore requires path to ipsw image and will create aux as well as the configuration file.\n\
+ If no CPU/RAM is specified then image's minimal settings are used.\n\
+\n\
+ If no --restore is performed then settings are read from the configuration file\n\
+ and only --gui / --audio options are honored.\n\
+ Size specifications allow suffix k, m and g for the powers of 1024.\n\
+\n\
+ Examples:\n\
+ # create a new VM with 32Gb disk image and macOS 12:\n\
+ %s --disk disk.img,size=32g --aux aux.img --restore UniversalMac_12.0.1_21A559_Restore.ipsw vm.json\n\
+ # start the created image with GUI:\n\
+ %s -g vm.json\n\
+\n\
+ Experimental, use at your own risk!\n\
+\n", av[0], av[0], av[0], av[0], av[0]); return 0;
                 case 'c':
                     if (av[i][2]) spec->cpus = atoi(av[i] + 2); else {
                         if (++i >= ac) {

@@ -17,6 +17,8 @@
     bootInfo = nil;
     audio = NO;
     _restoreImage = nil;
+    pty = use_serial = NO;
+    ptyPath = nil;
     return self;
 }
 
@@ -49,6 +51,12 @@
     tmp = root[@"displays"];
     if (tmp && [tmp isKindOfClass:[NSArray class]])
         displays = tmp;
+    tmp = root[@"audio"];
+    if (tmp && [tmp isKindOfClass:[NSNumber class]])
+        audio = [(NSNumber*)tmp unsignedLongValue] ? YES : NO;
+    tmp = root[@"serial"];
+    if (tmp && [tmp isKindOfClass:[NSNumber class]])
+        use_serial = [(NSNumber*)tmp unsignedLongValue] ? YES : NO;
     return nil;
 }
 
@@ -59,7 +67,8 @@
         @"cpus": [NSNumber numberWithInteger: cpus],
         @"ram": [NSNumber numberWithUnsignedLong: ram],
         @"storage" : storage ? storage : [NSArray array],
-        @"audio" : audio ? @(YES) : @(NO)
+        @"audio" : audio ? @(YES) : @(NO),
+	@"serial" : use_serial ? @(YES) : @(NO)
     };
     NSMutableDictionary *root = [[NSMutableDictionary alloc] init];
     [root setDictionary:src];
@@ -293,16 +302,42 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
             NSLog(@" + inital RAM disk: %@", initrd);
         }
         self.bootLoader = bootLoader;
-
-        VZVirtioConsoleDeviceSerialPortConfiguration *serial = [[VZVirtioConsoleDeviceSerialPortConfiguration alloc] init];
-        VZFileHandleSerialPortAttachment *sata = [[VZFileHandleSerialPortAttachment alloc]
-                                                     initWithFileHandleForReading: [NSFileHandle fileHandleWithStandardInput]
-                                                             fileHandleForWriting: [NSFileHandle fileHandleWithStandardOutput]];
-        serial.attachment = sata;
-        self.serialPorts = @[ serial ];
     } else {
         NSLog(@"ERROR: unsupported os specification '%@', can only handle 'macos' and 'linux'.", os);
         @throw [NSException exceptionWithName:@"VMConfig" reason:@"Unsupported os specification" userInfo:nil];
+    }
+
+    if (use_serial) {
+	NSFileHandle *readHandle = nil, *writeHandle = nil;
+	if (pty) {
+	    int masterfd, slavefd;
+	    char *slavedevice;
+	    masterfd = posix_openpt(O_RDWR|O_NOCTTY);
+
+	    if (masterfd == -1
+		|| grantpt (masterfd) == -1
+		|| unlockpt (masterfd) == -1
+		|| (slavedevice = ptsname (masterfd)) == NULL) {
+		perror("ERROR: cannot allocate pty");
+		@throw [NSException exceptionWithName:@"PTYSetup" reason:@"Cannot allocate PTY for serial console" userInfo:nil];
+	    }
+	    /* FIXME: this is a bad hack - the VZ framework fails to spawn the VM if the tty is not connected. */
+	    printf("PTY allocated for serial link: %s\nPress <enter> here on stdin once connected to the tty to proceed.\n", slavedevice);
+	    static char tmp1[16];
+	    fgets(tmp1, sizeof(tmp1), stdin);
+	    writeHandle = readHandle = [[NSFileHandle alloc] initWithFileDescriptor: masterfd];
+	    //writeHandle = [[NSFileHandle alloc] initWithFileDescriptor: dup(masterfd)];
+	    ptyPath = [[NSString alloc] initWithUTF8String: slavedevice];
+	} else {
+	    readHandle = [NSFileHandle fileHandleWithStandardInput];
+	    writeHandle = [NSFileHandle fileHandleWithStandardOutput];
+	}
+	VZVirtioConsoleDeviceSerialPortConfiguration *serial = [[VZVirtioConsoleDeviceSerialPortConfiguration alloc] init];
+	VZFileHandleSerialPortAttachment *sata = [[VZFileHandleSerialPortAttachment alloc]
+						     initWithFileHandleForReading: readHandle
+							     fileHandleForWriting: writeHandle];
+	serial.attachment = sata;
+	self.serialPorts = @[ serial ];
     }
 
     self.entropyDevices = @[[[VZVirtioEntropyDeviceConfiguration alloc] init]];
