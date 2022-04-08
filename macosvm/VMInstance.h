@@ -39,7 +39,7 @@
 
 @end
 
-@interface VMInstance : NSObject
+@interface VMInstance : NSObject <VZVirtioSocketListenerDelegate>
 {
     @public
     dispatch_queue_t queue;

@@ -458,6 +458,12 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
       self.audioDevices = @[soundDevice];
     }
 
+    {
+	/* request a socket so we can talk to any guest tools */
+	VZVirtioSocketDeviceConfiguration *sockConf = [[VZVirtioSocketDeviceConfiguration alloc] init];
+	self.socketDevices = @[ sockConf ];
+    }
+
     if ([os isEqualToString:@"macos"]) {
         if (hwm) macPlatform.hardwareModel = hwm;
 
@@ -505,8 +511,26 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     return self;
 }
 
+- (void) setupSockets {
+    if (self.virtualMachine.socketDevices && [self.virtualMachine.socketDevices count]) {
+	int port = 1010;
+	NSLog(@"Setting up socket listener on port %d\n", port);
+	VZVirtioSocketDevice *sdev = (VZVirtioSocketDevice*) self.virtualMachine.socketDevices[0];
+	if (sdev) {
+	    NSLog(@"Got socket device %@", sdev);
+	    VZVirtioSocketListener *listener = [[VZVirtioSocketListener alloc] init];
+	    listener.delegate = self;
+	    [sdev setSocketListener: listener forPort:port];
+	} else
+	    NSLog(@"No device! I won't be able to handle any guest requests.");
+    }
+}
+
 - (void) start {
-    dispatch_async(queue, ^{ [self start_ ]; });
+    dispatch_async(queue, ^{
+	[self setupSockets];
+	[self start_ ];
+      });
 }
 
 - (void) performVM: (id) target selector: (SEL) aSelector withObject:(id)anArgument {
@@ -547,4 +571,92 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     return ! stopError;
 }
 
+/* this is our own simple protocol to facilitate communication between
+   guest-side tools and us. It is private to macosvm, not any standard */
+
+#define MSG_ERROR 0x1000
+#define MSG_UNSUPPORTED (MSG_ERROR | 1)
+
+typedef struct msg_header {
+    uint32_t msg;
+    uint32_t mid;
+    uint64_t len;
+} msg_header_t;
+
+static char *slurp_buf;
+static size_t slurp_buf_len;
+
+static int slurp(int fd, size_t len) {
+    if (!slurp_buf) {
+	if (!slurp_buf_len)
+	    slurp_buf_len = 1024*1024; /* 1Mb */
+	slurp_buf = (char*) malloc(slurp_buf_len);
+	if (!slurp_buf) {
+	    NSLog(@"ERROR: cannot allocate slurp buffer");
+	    return -1;
+	}
+    }
+    while(len) {
+	ssize_t sl = (ssize_t) ((len > slurp_buf_len) ? slurp_buf_len : len);
+	ssize_t n = read(fd, slurp_buf, sl);
+	if (n < 1) {
+	    NSLog(@"ERROR: guest input read failed, n = %d", (int) n);
+	    return -1;
+	}
+	len -= n;
+    }
+    return 0;
+}
+
+- (int) processMessage: (msg_header_t*) msg fileDescriptor: (int) fd {
+    /* process known messages here */
+
+    /* any unknown messages get MSG_UNSUPPORTED response back */
+    /* slurp the rest of the message to retain sanity on the wire */
+    if (msg->len && slurp(fd, msg->len)) {
+	/* slurp failed, close the connection */
+	close(fd);
+	return -1;
+    }
+    msg_header_t resp = { MSG_UNSUPPORTED, msg->mid, 0 };
+    ssize_t n = write(fd, &resp, sizeof(resp));
+    if (n < sizeof(resp)) {
+	NSLog(@"ERROR: cannot send to guest, n=%d", (int) n);
+	close(fd);
+	return -1;
+    }
+    return fd;
+}
+
+- (void) processConnection: (int) fd {
+    msg_header_t hdr;
+    NSLog(@"processConnection: %d\n", fd);
+    if (fd == -1) {
+	NSLog(@"socket connection closed");
+	return;
+    }
+    /* loop to process any incoming messages */
+    while (fd != -1) {
+	ssize_t n = read(fd, &hdr, sizeof(hdr));
+	if (n != sizeof(hdr)) {
+	    if (n == 0)
+		NSLog(@"Guest connection closed.");
+	    else if (n < 0)
+		perror("Error reading from guest socket:");
+	    else
+		NSLog(@"ERROR: invalid payload from guest, closing socket");
+	    close(fd);
+	    fd = -1;
+	    break;
+	}
+	fd = [self processMessage: &hdr fileDescriptor: fd];
+    }
+}
+
+- (BOOL)listener:(VZVirtioSocketListener *)listener shouldAcceptNewConnection:(VZVirtioSocketConnection *)connection
+    fromSocketDevice:(VZVirtioSocketDevice *)socketDevice {
+    NSLog(@"listener:%@ shouldAcceptNewConnection:%@ fromSocketDevice:%@", listener, connection, socketDevice);
+    dispatch_async(queue, ^{ [self processConnection: connection.fileDescriptor]; });
+    return YES;
+}
 @end
