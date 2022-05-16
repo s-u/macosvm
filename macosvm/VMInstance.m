@@ -16,6 +16,8 @@
     os = nil;
     bootInfo = nil;
     audio = NO;
+    recovery = NO;
+    dfu = NO;
     _restoreImage = nil;
     use_serial = YES;
     use_pl011 = NO;
@@ -524,6 +526,9 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     //queue = dispatch_get_main_queue(); //dispatch_queue_create("macvm", DISPATCH_QUEUE_SERIAL);
     queue = dispatch_queue_create("macvm", DISPATCH_QUEUE_SERIAL);
     self.virtualMachine = [[VZVirtualMachine alloc] initWithConfiguration:_spec queue:queue];
+    self.options = [[_VZVirtualMachineStartOptions alloc] init];
+    self.options.bootMacOSRecovery = self.spec->recovery;
+    self.options.forceDFU = self.spec->dfu;
     NSLog(@" init OK");
     return self;
 }
@@ -545,7 +550,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 }
 
 - (void) start_ {
-    [_virtualMachine startWithCompletionHandler:^(NSError *err) {
+    [_virtualMachine _startWithOptions:self.options completionHandler:^(NSError *err) {
         NSLog(@"start completed err=%@", err ? err : @"nil");
         if (err)
             @throw [NSException exceptionWithName:@"VMStartError" reason:[err description] userInfo:nil];
