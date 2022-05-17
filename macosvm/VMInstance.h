@@ -20,7 +20,7 @@
 @public
     int cpus;
     unsigned long ram;
-    BOOL audio, use_serial, pty;
+    BOOL audio, use_serial, pty, use_pl011, recovery, dfu;
 }
 
 @property (strong) VZMacOSRestoreImage *restoreImage;
@@ -39,6 +39,17 @@
 
 @end
 
+@interface _VZVirtualMachineStartOptions : NSObject
+
+@property BOOL restartAction;
+@property BOOL panicAction;
+@property BOOL stopInIBootStage1;
+@property BOOL stopInIBootStage2;
+@property BOOL bootMacOSRecovery;
+@property BOOL forceDFU;
+
+@end
+
 @interface VMInstance : NSObject
 {
     @public
@@ -48,10 +59,19 @@
 
 @property (strong) VZVirtualMachine *virtualMachine;
 @property (strong) VMSpec *spec;
+@property (strong) _VZVirtualMachineStartOptions *options;
 
 - (instancetype) initWithSpec: (VMSpec*) spec;
 - (void) start;
 - (BOOL) stop;
 - (void) performVM: (id) target selector: (SEL) aSelector withObject:(nullable id)anArgument;
 
+@end
+
+@interface _VZPL011SerialPortConfiguration : VZSerialPortConfiguration
+- (instancetype _Nonnull)init;
+@end
+
+@interface VZVirtualMachine()
+- (void)_startWithOptions:(_VZVirtualMachineStartOptions *_Nonnull)options completionHandler:(void (^_Nonnull)(NSError * _Nullable errorOrNil))completionHandler;
 @end

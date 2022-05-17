@@ -16,8 +16,11 @@
     os = nil;
     bootInfo = nil;
     audio = NO;
+    recovery = NO;
+    dfu = NO;
     _restoreImage = nil;
     use_serial = YES;
+    use_pl011 = NO;
     pty = NO;
     ptyPath = nil;
     return self;
@@ -58,6 +61,9 @@
     tmp = root[@"serial"];
     if (tmp && [tmp isKindOfClass:[NSNumber class]])
         use_serial = [(NSNumber*)tmp unsignedLongValue] ? YES : NO;
+    tmp = root[@"pl011"];
+    if (tmp && [tmp isKindOfClass:[NSNumber class]])
+        use_pl011 = [(NSNumber*)tmp unsignedLongValue] ? YES : NO;
     return nil;
 }
 
@@ -69,7 +75,8 @@
         @"ram": [NSNumber numberWithUnsignedLong: ram],
         @"storage" : storage ? storage : [NSArray array],
         @"audio" : audio ? @(YES) : @(NO),
-	@"serial" : use_serial ? @(YES) : @(NO)
+	@"serial" : use_serial ? @(YES) : @(NO),
+	@"pl011" : use_pl011 ? @(YES) : @(NO),
     };
     NSMutableDictionary *root = [[NSMutableDictionary alloc] init];
     [root setDictionary:src];
@@ -308,6 +315,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
         @throw [NSException exceptionWithName:@"VMConfig" reason:@"Unsupported os specification" userInfo:nil];
     }
 
+    self.serialPorts = @[ ];
     if (use_serial) {
 	NSFileHandle *readHandle = nil, *writeHandle = nil;
 	if (pty) {
@@ -339,6 +347,23 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 							     fileHandleForWriting: writeHandle];
 	serial.attachment = sata;
 	self.serialPorts = @[ serial ];
+    }
+
+    if (use_pl011) {
+	NSFileHandle *readHandle = [NSFileHandle fileHandleWithStandardInput];
+	NSFileHandle *writeHandle = [NSFileHandle fileHandleWithStandardOutput];
+	VZFileHandleSerialPortAttachment *sata = [[VZFileHandleSerialPortAttachment alloc]
+						     initWithFileHandleForReading: readHandle
+							     fileHandleForWriting: writeHandle];
+	VZSerialPortConfiguration *pl011;
+	pl011 = [[_VZPL011SerialPortConfiguration alloc] init];
+	pl011.attachment = sata;
+
+	if ([self.serialPorts count] > 0) {
+		self.serialPorts = @[ self.serialPorts[0], pl011 ];
+	} else {
+		self.serialPorts = @[ pl011 ];
+	}
     }
 
     self.entropyDevices = @[[[VZVirtioEntropyDeviceConfiguration alloc] init]];
@@ -501,6 +526,9 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     //queue = dispatch_get_main_queue(); //dispatch_queue_create("macvm", DISPATCH_QUEUE_SERIAL);
     queue = dispatch_queue_create("macvm", DISPATCH_QUEUE_SERIAL);
     self.virtualMachine = [[VZVirtualMachine alloc] initWithConfiguration:_spec queue:queue];
+    self.options = [[_VZVirtualMachineStartOptions alloc] init];
+    self.options.bootMacOSRecovery = self.spec->recovery;
+    self.options.forceDFU = self.spec->dfu;
     NSLog(@" init OK");
     return self;
 }
@@ -522,7 +550,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 }
 
 - (void) start_ {
-    [_virtualMachine startWithCompletionHandler:^(NSError *err) {
+    [_virtualMachine _startWithOptions:self.options completionHandler:^(NSError *err) {
         NSLog(@"start completed err=%@", err ? err : @"nil");
         if (err)
             @throw [NSException exceptionWithName:@"VMStartError" reason:[err description] userInfo:nil];
