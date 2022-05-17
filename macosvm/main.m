@@ -457,7 +457,8 @@ int main(int ac, char**av) {
                 case 'h': printf("\n\
  Usage: %s [-g|--[no-]gui] [--[no-]audio] [--restore <path>] [--ephemeral]\n\
            [--disk <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
-           [--net <spec>] [-c <cpu>] [-m <ram>] [--no-serial] [--pty] <config.json>\n\
+           [--net <spec>] [-c <cpu>] [-m <ram>] [--no-serial] [--pty]\n\
+           [--[no-]pl011] <config.json>\n\
         %s --version\n\
         %s -h\n\
 \n\
@@ -465,7 +466,7 @@ int main(int ac, char**av) {
  If no CPU/RAM is specified then image's minimal settings are used.\n\
 \n\
  If no --restore is performed then settings are read from the configuration file\n\
- and only --gui / --audio options are honored.\n\
+ and only --gui / --audio / --pl011 options are honored.\n\
  Size specifications allow suffix k, m and g for the powers of 1024.\n\
 \n\
  Examples:\n\
@@ -516,6 +517,8 @@ int main(int ac, char**av) {
                 if (!strcmp(av[i], "--no-gui")) { main.useGUI = NO; continue; }
                 if (!strcmp(av[i], "--no-audio")) { spec->audio = NO; continue; }
                 if (!strcmp(av[i], "--audio")) { spec->audio = YES; continue; }
+                if (!strcmp(av[i], "--pl011")) { spec->use_pl011 = YES; continue; }
+                if (!strcmp(av[i], "--no-pl011")) { spec->use_pl011 = NO; continue; }
             }
         } else {
             if (configPath) {

@@ -20,7 +20,7 @@
 @public
     int cpus;
     unsigned long ram;
-    BOOL audio, use_serial, pty;
+    BOOL audio, use_serial, pty, use_pl011;
 }
 
 @property (strong) VZMacOSRestoreImage *restoreImage;
@@ -54,4 +54,8 @@
 - (BOOL) stop;
 - (void) performVM: (id) target selector: (SEL) aSelector withObject:(nullable id)anArgument;
 
+@end
+
+@interface _VZPL011SerialPortConfiguration : VZSerialPortConfiguration
+- (instancetype _Nonnull)init;
 @end
