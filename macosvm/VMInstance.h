@@ -1,6 +1,10 @@
 #import <Foundation/Foundation.h>
 #import <Virtualization/Virtualization.h>
 
+#ifdef __arm64__
+#define MACOS_GUEST 1
+#endif
+
 @interface VMSpec : VZVirtualMachineConfiguration {
     NSData  *machineIdentifierData, *hardwareModelData;
     NSArray *storage;
@@ -23,7 +27,9 @@
     BOOL audio, use_serial, pty;
 }
 
+#ifdef MACOS_GUEST
 @property (strong) VZMacOSRestoreImage *restoreImage;
+#endif
 
 - (instancetype) init;
 - (NSError *) readFromJSON: (NSInputStream*) jsonStream;

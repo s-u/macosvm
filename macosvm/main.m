@@ -17,7 +17,9 @@ static const char *version = "0.1-3";
 @property BOOL useGUI;
 @property (strong) NSString *configPath;
 @property (strong) NSString *restorePath;
+#ifdef MACOS_GUEST
 @property (strong) VZMacOSInstaller *installer;
+#endif
 
 @end
 
@@ -31,7 +33,9 @@ static const char *version = "0.1-3";
     spec = nil;
     _configPath = nil;
     _restorePath = nil;
+#ifdef MACOS_GUEST
     _installer = nil;
+#endif
     tick = 0;
     installProgressTimer = nil;
     return self;
@@ -59,6 +63,7 @@ attachmentWasDisconnectedWithError:(NSError *)error {
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
     [self->spec addDefaults];
+#ifdef MACOS_GUEST
     if (_restorePath) {
         NSLog(@"Restoring from %@", _restorePath);
         [VZMacOSRestoreImage loadFileURL:[NSURL fileURLWithPath:_restorePath] completionHandler:^(VZMacOSRestoreImage *img, NSError *err) {
@@ -70,11 +75,14 @@ attachmentWasDisconnectedWithError:(NSError *)error {
                 [self createVM:nil];
             });
         }];
-    } else [self createVM: nil];
+    } else
+#endif
+        [self createVM: nil];
 }
 
 - (void) updateProgess: (id) object {
     const char ticks[] = "-\\|/";
+#ifdef MACOS_GUEST
     NSProgress *progress = (_installer && _installer.progress) ? _installer.progress : nil;
     tick++;
     tick &= 3;
@@ -82,7 +90,8 @@ attachmentWasDisconnectedWithError:(NSError *)error {
         printf("\r [%c] Progress: %.1f%%\r", ticks[tick], [progress fractionCompleted] * 100.0);
     else
         printf("\r [%c] Progress: ?????\r", ticks[tick]);
-    fflush(stdout);
+    fflush(stdout)
+#endif;
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
@@ -94,6 +103,7 @@ attachmentWasDisconnectedWithError:(NSError *)error {
 }
 
 - (void) installMacOS: (id) dummy {
+#ifdef MACOS_GUEST
     // beats me why Installer doesn't take VZMacOSRestoreImage ..
     NSLog(@" installMacOS: from %@", _restorePath);
     self.installer = [[VZMacOSInstaller alloc] initWithVirtualMachine:vm.virtualMachine restoreImageURL:[NSURL fileURLWithPath:_restorePath]];
@@ -111,6 +121,7 @@ attachmentWasDisconnectedWithError:(NSError *)error {
             @throw [NSException exceptionWithName:@"MacOSInstall" reason:[err description] userInfo:nil];
         });
     }];
+#endif
 }
 
 - (void) createVM: (id) dummy {
@@ -120,6 +131,7 @@ attachmentWasDisconnectedWithError:(NSError *)error {
         VZVirtualMachine *vz = vm.virtualMachine;
         vz.delegate = self;
 
+#ifdef MACOS_GUEST
         if (spec.restoreImage && _restorePath) {
             /* dump config */
             @try {
@@ -139,6 +151,7 @@ attachmentWasDisconnectedWithError:(NSError *)error {
                 printf("\n\n");
             }
         }
+#endif
 
         if (self.useGUI) {
             NSLog(@"Create GUI");
@@ -196,6 +209,7 @@ attachmentWasDisconnectedWithError:(NSError *)error {
             }
         }
 
+#ifdef MACOS_GUEST
         if (spec.restoreImage && _restorePath) {
             NSLog(@"Restore requested, starting macOS installer from %@", _restorePath);
             NSLog(@"Installing macOS version %d.%d.%d (build %@)",
@@ -207,9 +221,12 @@ attachmentWasDisconnectedWithError:(NSError *)error {
                 [self installMacOS:self];
             });
         } else {
+#endif
             NSLog(@"Starting instnace...");
             [vm start];
+#ifdef MACOS_GUEST
         }
+#endif
     }
     @catch (NSException *ex){
         NSLog(@"Exception in VM init: %@", ex);

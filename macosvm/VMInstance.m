@@ -16,7 +16,9 @@
     os = nil;
     bootInfo = nil;
     audio = NO;
+#ifdef MACOS_GUEST
     _restoreImage = nil;
+#endif
     use_serial = YES;
     pty = NO;
     ptyPath = nil;
@@ -238,6 +240,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 - (instancetype) configure {
     if (!os)
         os = @"macos";
+#ifdef MACOS_GUEST
     NSLog(@"%@ - configure for %@, OS: %@", self, self.restoreImage ? @"restore" : @"run", os);
     if ([os isEqualToString:@"macos"] && self.restoreImage) {
         VZMacOSRestoreImage *img = self.restoreImage;
@@ -257,17 +260,26 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
         if (req.minimumSupportedMemorySize > ram)
             @throw [NSException exceptionWithName:@"VMConfig" reason:[NSString stringWithFormat:@"Image requires %lu bytes of RAM, but only %lu configured", (unsigned long)req.minimumSupportedMemorySize, ram] userInfo:nil];
     }
+#else
+    NSLog(@"%@ - configure for running, OS: %@", self, os);
+#endif
 
     if (!cpus)
         @throw [NSException exceptionWithName:@"VMConfigCPU" reason:@"Number of CPUs not specified" userInfo:nil];
     if (!ram)
         @throw [NSException exceptionWithName:@"VMConfigRAM" reason:@"RAM size not specified" userInfo:nil];
 
+#if MACOS_GUEST
     VZMacPlatformConfiguration *macPlatform = nil;
+#endif
 
     if ([os isEqualToString:@"macos"]) {
+#if MACOS_GUEST
         self.bootLoader = [[VZMacOSBootLoader alloc] init];
         macPlatform = [[VZMacPlatformConfiguration alloc] init];
+#else
+	@throw [NSException exceptionWithName:@"VMConfig" reason:@"This Mac does not support macOS as guest system" userInfo:nil];
+#endif
     } else if ([os isEqualToString:@"linux"]) {
         NSURL *initrd = nil, *kernel = nil;
         NSString *params = nil;
@@ -383,6 +395,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     }
     self.networkDevices = netList;
 
+#ifdef MACOS_GUEST
     VZMacGraphicsDeviceConfiguration *graphics = [[VZMacGraphicsDeviceConfiguration alloc] init];
     NSMutableArray *disp = [NSMutableArray arrayWithCapacity:displays ? [displays count] : 1];
     if (displays) for (NSDictionary *d in displays) {
@@ -397,15 +410,19 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     }
     graphics.displays = disp;
     self.graphicsDevices = @[graphics];
+#endif
+
     self.keyboards = @[[[VZUSBKeyboardConfiguration alloc] init]];
     self.pointingDevices = @[[[VZUSBScreenCoordinatePointingDeviceConfiguration alloc] init]];
 
+#ifdef MACOS_GUEST
     VZMacHardwareModel *hwm = hardwareModelData ? [[VZMacHardwareModel alloc] initWithDataRepresentation:hardwareModelData] : nil;
 
     if (macPlatform && !hardwareModelData) {
         fprintf(stderr, "WARNING: no hardware information found, using arm64 macOS 12.0.0 specs\n");
         hardwareModelData = [[NSData alloc] initWithBase64EncodedString: @"YnBsaXN0MDDTAQIDBAUGXxAZRGF0YVJlcHJlc2VudGF0aW9uVmVyc2lvbl8QD1BsYXRmb3JtVmVyc2lvbl8QEk1pbmltdW1TdXBwb3J0ZWRPUxQAAAAAAAAAAAAAAAAAAAABEAKjBwgIEAwQAAgPKz1SY2VpawAAAAAAAAEBAAAAAAAAAAkAAAAAAAAAAAAAAAAAAABt" options:0];
     }
+#endif
 
     NSMutableArray *std = [NSMutableArray arrayWithCapacity:storage ? [storage count] : 1];
     if (storage) for (NSDictionary *d in storage) {
@@ -428,6 +445,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 NSError *err = nil;
                 NSURL *imageURL = url ? url : [NSURL fileURLWithPath:path];
                 BOOL useExisting = url || (path && [[NSFileManager defaultManager] fileExistsAtPath:path]);
+#ifdef MACOS_GUEST
                 if (self.restoreImage)
                     useExisting = NO;
                 if (macPlatform) {
@@ -441,6 +459,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                         @throw [NSException exceptionWithName:@"VMConfigAuxStorageError" reason:[err description] userInfo:nil];
                     macPlatform.auxiliaryStorage = aux;
                 } else
+#endif
                     NSLog(@"WARNING: auxiliary storage is only supported for macOS guests, ignoring\n");
             }
         }
@@ -459,6 +478,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     }
 
     if ([os isEqualToString:@"macos"]) {
+#ifdef MACOS_GUEST
         if (hwm) macPlatform.hardwareModel = hwm;
 
         /* either load existing or create new one */
@@ -469,6 +489,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
             machineIdentifierData = mid.dataRepresentation;
 
         self.platform = macPlatform;
+#endif
     } else { /* generic platform */
         self.platform = [[VZGenericPlatformConfiguration alloc] init];
     }
