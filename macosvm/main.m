@@ -90,8 +90,8 @@ attachmentWasDisconnectedWithError:(NSError *)error {
         printf("\r [%c] Progress: %.1f%%\r", ticks[tick], [progress fractionCompleted] * 100.0);
     else
         printf("\r [%c] Progress: ?????\r", ticks[tick]);
-    fflush(stdout)
-#endif;
+    fflush(stdout);
+#endif
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
