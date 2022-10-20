@@ -122,10 +122,41 @@
     networks = networks ? [networks arrayByAddingObject:root] : @[root];
 }
 
+- (void) addNetwork: (NSString*) type mac:(NSString*) mac {
+    NSDictionary *root = @{
+        @"type" : type,
+        @"mac" : mac
+    };
+    networks = networks ? [networks arrayByAddingObject:root] : @[root];
+}
+
+- (void) setPrimaryMAC: (NSString*) mac {
+    if (networks && [networks count]) {
+        NSDictionary *fa = [networks objectAtIndex:0];
+        NSMutableDictionary *nn = [NSMutableDictionary dictionaryWithDictionary: fa];
+	[nn setObject: mac forKey:@"mac"];
+        if ([networks count] == 1)
+            networks = @[nn];
+        else {
+            NSMutableArray *ma = [NSMutableArray arrayWithObject: nn];
+            networks = [ma arrayByAddingObjectsFromArray:[networks subarrayWithRange: NSMakeRange(1, [ma count] - 1)]];
+        }
+    } else [self addNetwork: @"nat" mac:mac];
+}
+
 - (void) addNetwork: (NSString*) type interface: (NSString*) iface {
     NSDictionary *root = @{
         @"type" : type,
         @"interface" : iface
+    };
+    networks = networks ? [networks arrayByAddingObject:root] : @[root];
+}
+
+- (void) addNetwork: (NSString*) type interface: (NSString*) iface mac: (NSString*) mac {
+    NSDictionary *root = @{
+        @"type" : type,
+        @"interface" : iface,
+        @"mac" : mac
     };
     networks = networks ? [networks arrayByAddingObject:root] : @[root];
 }
@@ -359,7 +390,8 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     if (networks) for (NSDictionary *d in networks) {
             VZVirtioNetworkDeviceConfiguration *networkDevice = [[VZVirtioNetworkDeviceConfiguration alloc] init];
             NSString *type = d[@"type"];
-            if (type && [type isEqualToString:@"nat"]) {
+	    /* default to NAT */
+            if (!type || [type isEqualToString:@"nat"]) {
                 NSLog(@" + NAT network");
                 networkDevice.attachment = [[VZNATNetworkDeviceAttachment alloc] init];
             } else if (type && [type hasPrefix:@"br"]) {
@@ -389,8 +421,19 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 NSLog(@" + Bridged network to %@", brInterface);
                 networkDevice.attachment = [[VZBridgedNetworkDeviceAttachment alloc] initWithInterface:brInterface];
                 [netList addObject: networkDevice];
-            } else
-                @throw [NSException exceptionWithName:@"VMConfigNet" reason: type ? @"Missing type in network specification" : @"Unsupported type in network specification" userInfo:nil];
+            }
+	    NSString *macAddr = d[@"mac"];
+	    if (macAddr) {
+		VZMACAddress *addr = [[VZMACAddress alloc] initWithString: macAddr];
+		if (!addr) {
+		    @throw [NSException exceptionWithName:@"VMConfigNetworkError"
+						   reason:[NSString stringWithFormat:@"Invalid MAC address specification: '%@'", macAddr] userInfo:nil];
+		}
+		networkDevice.MACAddress = addr;
+	    } else {
+		networkDevice.MACAddress = [VZMACAddress randomLocallyAdministeredAddress];
+	    }
+	    NSLog(@" + network: ether %@\n", [networkDevice.MACAddress string]);
             [netList addObject: networkDevice];
     }
     self.networkDevices = netList;

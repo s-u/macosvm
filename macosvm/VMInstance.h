@@ -39,7 +39,10 @@
 - (void) addDefaults;
 - (void) addDisplayWithWidth: (int) width height: (int) height dpi: (int) dpi;
 - (void) addNetwork: (NSString*) type;
+- (void) addNetwork: (NSString*) type mac:(NSString*) mac;
 - (void) addNetwork: (NSString*) type interface: (NSString*) iface;
+- (void) addNetwork: (NSString*) type interface: (NSString*) iface mac: (NSString*) mac;
+- (void) setPrimaryMAC: (NSString*) mac;
 - (instancetype) configure;
 - (void) cloneAllStorage;
 

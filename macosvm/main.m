@@ -336,6 +336,7 @@ int main(int ac, char**av) {
     main->spec = spec;
     BOOL create = NO, ephemeral = NO;
     NSString *configPath = nil;
+    NSString *macOverride = nil;
 
     spec->use_serial = YES; /* we default to registering a serial console */
     /* FIXME: the parameters are a mess, in particular the config overrides
@@ -372,6 +373,13 @@ int main(int ac, char**av) {
 	    }
 	    if (!strcmp(av[i], "--no-serial")) {
 		spec->use_serial = NO; continue;
+	    }
+	    if (!strcmp(av[i], "--mac")) {
+                if (++i >= ac) {
+                    fprintf(stderr, "ERROR: %s missing MAC address", av[i-1]);
+                    return 1;
+                }
+                macOverride = [NSString stringWithUTF8String: av[i]];
 	    }
             if (!strcmp(av[i], "--disk") || !strcmp(av[i], "--aux") || !strcmp(av[i], "--initrd")) {
                 BOOL readOnly = NO;
@@ -440,9 +448,10 @@ int main(int ac, char**av) {
             if (!strcmp(av[i], "--net")) {
                 NSString *ifName = nil;
                 NSString *type = nil;
+                NSString *mac = nil;
                 char *c, *dop;
                 if (++i >= ac) {
-                    fprintf(stderr, "ERROR: %s missing netowrk specification", av[i-1]);
+                    fprintf(stderr, "ERROR: %s missing network specification", av[i-1]);
                     return 1;
                 }
                 c = av[i];
@@ -453,7 +462,13 @@ int main(int ac, char**av) {
                 }
                 if (!strcmp(av[i], "nat")) {
                     type = @"nat";
-                    printf("INFO: add NAT network\n");
+                    if (ifName) {
+                        mac = ifName;
+                        ifName = nil;
+                    }
+                    printf("INFO: add NAT network %s%s\n",
+                           mac ? "with MAC address " : "(random MAC address)",
+                           mac ? [mac UTF8String] : "");
                 } else if (!strncmp(av[i], "br", 2)) {
                     type = @"bridge";
                     printf("INFO: add bridged network %s%s\n",
@@ -466,6 +481,8 @@ int main(int ac, char**av) {
 
                 if (ifName)
                     [spec addNetwork:type interface:ifName];
+		else if (mac)
+		    [spec addNetwork:type mac:mac];
                 else
                     [spec addNetwork:type];
                 continue;
@@ -474,7 +491,8 @@ int main(int ac, char**av) {
                 case 'h': printf("\n\
  Usage: %s [-g|--[no-]gui] [--[no-]audio] [--restore <path>] [--ephemeral]\n\
            [--disk <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
-           [--net <spec>] [-c <cpu>] [-m <ram>] [--no-serial] [--pty] <config.json>\n\
+           [--net <spec>] [--mac <addr>] [-c <cpu>] [-m <ram>]\n\
+           [--no-serial] [--pty]   <config.json>\n\
         %s --version\n\
         %s -h\n\
 \n\
@@ -484,6 +502,12 @@ int main(int ac, char**av) {
  If no --restore is performed then settings are read from the configuration file\n\
  and only --gui / --audio options are honored.\n\
  Size specifications allow suffix k, m and g for the powers of 1024.\n\
+\n\
+ Network specification is <type>[:<options>] where <type> is either\n\
+ nat or br. For nat <options> is a MAC address to assign to the interface,\n\
+ for br it is the interface to bridge (requires special entitlement!).\n\
+ Note that the --mac option is special and will override the first interface\n\
+ from the configuration file and/or --net (typically used with --ephemeral).\n\
 \n\
  Examples:\n\
  # create a new VM with 32Gb disk image and macOS 12:\n\
@@ -564,6 +588,9 @@ int main(int ac, char**av) {
         return 1;
     }
     main.configPath = configPath;
+
+    if (macOverride)
+	[spec setPrimaryMAC: macOverride];
 
     if (ephemeral) {
         /* register the callback first such that if soemthing fails in the middle
