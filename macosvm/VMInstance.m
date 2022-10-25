@@ -54,6 +54,9 @@
     tmp = root[@"displays"];
     if (tmp && [tmp isKindOfClass:[NSArray class]])
         displays = tmp;
+    tmp = root[@"shares"];
+    if (tmp && [tmp isKindOfClass:[NSArray class]])
+        shares = tmp;
     tmp = root[@"audio"];
     if (tmp && [tmp isKindOfClass:[NSNumber class]])
         audio = [(NSNumber*)tmp unsignedLongValue] ? YES : NO;
@@ -85,6 +88,8 @@
         [root setObject:displays forKey:@"displays"];
     if (networks)
         [root setObject:networks forKey:@"networks"];
+    if (shares)
+        [root setObject:shares forKey:@"shares"];
     NSError *err = nil;
     [NSJSONSerialization writeJSONObject:root toStream:jsonStream
                                  options:NSJSONWritingWithoutEscapingSlashes
@@ -113,6 +118,42 @@
             @"dpi": [NSNumber numberWithInteger:dpi]
     };
     displays = displays ? [displays arrayByAddingObject:display] : @[display];
+}
+
+- (void) addDirectoryShare: (NSString*) path volume: (NSString*) volume readOnly: (BOOL) readOnly {
+    NSDictionary *root = @{
+        @"path" : path,
+        @"volume" : volume,
+        @"readOnly" : @(readOnly)
+    };
+    shares = shares ? [shares arrayByAddingObject:root] : @[root];
+}
+
+- (void) addDirectoryShares: (NSArray*) paths volume: (NSString*) volume readOnly: (BOOL) readOnly {
+    NSDictionary *root = @{
+        @"paths" : paths,
+        @"volume" : volume,
+        @"readOnly" : @(readOnly)
+    };
+    shares = shares ? [shares arrayByAddingObject:root] : @[root];
+}
+
+- (void) addAutomountDirectoryShare: (NSString*) path readOnly: (BOOL) readOnly {
+    NSDictionary *root = @{
+        @"path" : path,
+        @"automount" : @(YES),
+        @"readOnly" : @(readOnly)
+    };
+    shares = shares ? [shares arrayByAddingObject:root] : @[root];
+}
+
+- (void) addAutomountDirectoryShares: (NSArray*) paths readOnly: (BOOL) readOnly {
+    NSDictionary *root = @{
+        @"paths" : paths,
+        @"automount" : @(YES),
+        @"readOnly" : @(readOnly)
+    };
+    shares = shares ? [shares arrayByAddingObject:root] : @[root];
 }
 
 - (void) addNetwork: (NSString*) type {
@@ -437,6 +478,65 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
             [netList addObject: networkDevice];
     }
     self.networkDevices = netList;
+
+    if (@available(macOS 12, *)) {
+        if (shares) {
+            NSMutableArray *shDevs = [[NSMutableArray alloc] init];
+            for (NSDictionary *d in shares) {
+                id tmp;
+                NSString *path = d[@"path"];
+                NSString *volume = d[@"volume"];
+                NSArray *paths = d[@"paths"];
+                NSURL *url = nil;
+                BOOL ro = (d[@"readOnly"] && [d[@"readOnly"] boolValue]) ? YES : NO;
+                BOOL automount = (d[@"automount"] && [d[@"automount"] boolValue]) ? YES : NO;
+                NSString *shareTag = @"macosvm";
+                if (automount) {
+		    BOOL canAutomount = NO;
+#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
+		    if (@available(macOS 13, *)) {
+			shareTag = VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag;
+			canAutomount = YES;
+		    }
+#endif
+		    if (!canAutomount) {
+                        NSLog(@"WARNING: you macOS does NOT support automounts, setting the share name to 'automount', you have to use 'mount_virtiofs automount <directory>' in the guest OS\n");
+                        shareTag = @"automount";
+                        automount = NO;
+                    }
+                } else if (volume)
+                    shareTag = volume;
+
+                VZVirtioFileSystemDeviceConfiguration *shareCfg = [[VZVirtioFileSystemDeviceConfiguration alloc] initWithTag: shareTag];
+                if (automount)
+                    NSLog(@" + automount share (in /Volumes/My Shared Files)\n");
+                else
+                    NSLog(@" + share, use mount_virtiofs '%@' <mountpoint> in guest OS\n", shareTag);
+                if (path)
+                    url = [NSURL fileURLWithPath:path];
+                if ((tmp = d[@"url"]))
+                    url = [NSURL URLWithString:tmp];
+                if (path) {
+                    VZSharedDirectory *directory = [[VZSharedDirectory alloc] initWithURL: url readOnly: ro];
+                    NSLog(@"   sharing single %@ (%@)\n", url, ro ? @"read-only" : @"read-write");
+                    shareCfg.share = [[VZSingleDirectoryShare alloc] initWithDirectory: directory];
+                } else if (paths) {
+                    NSMutableDictionary *dirs = [[NSMutableDictionary alloc] init];
+                    for (NSString *path in paths) {
+                        VZSharedDirectory *directory = [[VZSharedDirectory alloc] initWithURL: [NSURL fileURLWithPath: path] readOnly: ro];
+                        NSLog(@"   sharing multi %@ (%@)\n", url, ro ? @"read-only" : @"read-write");
+                        [dirs addObject: directory forKey:[path lastPathComponent]];
+                    }
+                    shareCfg.share = [[VZMultipleDirectoryShare alloc] initWithDirectories: dirs];
+                }
+                [shDevs addObject: shareCfg];
+            }
+            self.directorySharingDevices = shDevs;
+        }
+    } else {
+        if (shares)
+            @throw [NSException exceptionWithName:@"VMConfigSharesError" reason:@"Your macOS does not support directory sharing, you need macOS 12 or higher." userInfo:nil];
+    }
 
 #ifdef MACOS_GUEST
     VZMacGraphicsDeviceConfiguration *graphics = [[VZMacGraphicsDeviceConfiguration alloc] init];

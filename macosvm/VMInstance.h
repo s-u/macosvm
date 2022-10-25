@@ -14,7 +14,9 @@
     NSArray *displays;
     /* width:  height:  dpi: */
     NSArray *networks;
-    /* type: */
+    /* type:  mac:  interface: */
+    NSArray *shares;
+    /* */
     NSString *os;
     /* macos / linux */
     NSDictionary *bootInfo;
@@ -42,6 +44,10 @@
 - (void) addNetwork: (NSString*) type mac:(NSString*) mac;
 - (void) addNetwork: (NSString*) type interface: (NSString*) iface;
 - (void) addNetwork: (NSString*) type interface: (NSString*) iface mac: (NSString*) mac;
+- (void) addDirectoryShare: (NSString*) path volume: (NSString*) volume readOnly: (BOOL) readOnly;
+- (void) addDirectoryShares: (NSArray*) paths volume: (NSString*) volume readOnly: (BOOL) readOnly;
+- (void) addAutomountDirectoryShare: (NSString*) path readOnly: (BOOL) readOnly;
+- (void) addAutomountDirectoryShares: (NSArray*) paths readOnly: (BOOL) readOnly;
 - (void) setPrimaryMAC: (NSString*) mac;
 - (instancetype) configure;
 - (void) cloneAllStorage;
