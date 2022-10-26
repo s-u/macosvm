@@ -525,7 +525,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                     for (NSString *path in paths) {
                         VZSharedDirectory *directory = [[VZSharedDirectory alloc] initWithURL: [NSURL fileURLWithPath: path] readOnly: ro];
                         NSLog(@"   sharing multi %@ (%@)\n", url, ro ? @"read-only" : @"read-write");
-                        [dirs addObject: directory forKey:[path lastPathComponent]];
+                        [dirs setObject: directory forKey:[path lastPathComponent]];
                     }
                     shareCfg.share = [[VZMultipleDirectoryShare alloc] initWithDirectories: dirs];
                 }
