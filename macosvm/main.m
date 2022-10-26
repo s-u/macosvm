@@ -381,6 +381,39 @@ int main(int ac, char**av) {
                 }
                 macOverride = [NSString stringWithUTF8String: av[i]];
 	    }
+            if (!strcmp(av[i], "--vol")) {
+                BOOL readOnly = NO, autoMount = NO;
+                char *dop, *path = 0, *vol = 0;
+                if (++i >= ac) {
+                    fprintf(stderr, "ERROR: %s missing share specification", av[i-1]);
+                    return 1;
+                }
+                path = av[i]; /* first is path */
+                dop = strchr(path, ',');
+                while (dop) {
+                    *dop = 0; dop++;
+                    if (!strncmp(dop, "name=", 5))
+                        vol = dop + 5;
+                    else if (!strncmp(dop, "automount", 9))
+                        autoMount = YES;
+                    else if (!strncmp(dop, "ro", 2))
+                        readOnly = YES;
+		    else if (!strncmp(dop, "rw", 2))
+                        readOnly = NO;
+		    else {
+                        fprintf(stderr, "ERROR: invalid share option: '%s'\n", dop);
+                        return 1;
+		    }
+                    dop = strchr(dop, ',');
+                }
+                if (autoMount)
+                    [spec addAutomountDirectoryShare: [NSString stringWithUTF8String: path]
+                                            readOnly: readOnly];
+                else
+                    [spec addDirectoryShare: [NSString stringWithUTF8String: path]
+                                     volume: vol ? [NSString stringWithUTF8String:vol] : @"macosvm"
+                                   readOnly: readOnly];
+            }
             if (!strcmp(av[i], "--disk") || !strcmp(av[i], "--aux") || !strcmp(av[i], "--initrd")) {
                 BOOL readOnly = NO;
                 BOOL keep = NO;
@@ -491,6 +524,7 @@ int main(int ac, char**av) {
                 case 'h': printf("\n\
  Usage: %s [-g|--[no-]gui] [--[no-]audio] [--restore <path>] [--ephemeral]\n\
            [--disk <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
+           [--vol <path>[,ro][,{name=<name>|automount}]]\n\
            [--net <spec>] [--mac <addr>] [-c <cpu>] [-m <ram>]\n\
            [--no-serial] [--pty]   <config.json>\n\
         %s --version\n\
