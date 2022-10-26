@@ -1,6 +1,18 @@
 ## NEWS
 
-### 0.1-3 (under development)
+### 0.1-3
+
+* MAC address of each network interface created will be shown at startup, e.g.:
+  ```
+   + network: ether 9a:74:8c:65:6d:e0
+  ```
+  to make it easier to associate IP addresses to VMs via `arp -a`.
+
+* `--net nat:<MAC>` defines a NAT network interface with a given pre-defined MAC address. Similarly, the interfaces in the `"networks"` configuration section can have `"mac"` keys that define the MAC address.
+
+* Additonal option `--mac <MAC>` on the command line will override the MAC address of the first interface, regardless how it was defined (configuration file or command line). This is useful when creating multiple VMs from the same configuration file, typically with `--ephemeral`.
+
+* Added support for VirtIOFS shared directories via `--vol` option. The syntax is `--vol <path>[,ro][,{name=<name>|automount}]` where `<path>` is the path on the host OS to share and `<name>` is the name (also known as "tag") of the share. On macOS 13 (Ventura) and higher `automount` option can be specified in which case the share is automatically mounted in `/Volumes/My Shared Files`. If not specifed, the share has to be mounted by name with `mount_virtiofs <name> <mountpoint>` in the guest OS.
 
 * guest serial console is now also enabled in macOS guests (in `/dev/cu.virtio` and `/dev/tty.virtio`). Previous versions enabled it only for Linux guests. It can be explicitly disabled using `--no-serial` option.
 
