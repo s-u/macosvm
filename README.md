@@ -68,6 +68,10 @@ Unless run with `-g`/`--gui` the tool will run solely as a command line tool and
 
 ### Networking
 
-The default setup is NAT networking which means your host will allocate a separate local network for the VM. You can use `--net <type>[:<iface>]` so specify different network adapters and different types. `macosvm` currently implements `nat` and `bridge` where the latter requires the name of the host interface to bridge to (if left blank the first interface is used). Note, however, that bridging requires a special entitlement so may not work with SIP enabled for security reasons.
+The default setup is NAT networking which means your host will allocate a separate local network for the VM. You can use `--net <type>[:{<mac>|<iface>}]` so specify different network adapters and different types. `macosvm` currently implements `nat` and `bridge` where the latter requires the name of the host interface to bridge to (if left blank the first interface is used). Note, however, that bridging requires a special entitlement that can only be obtained from Apple so it is not supported by "normal" binaries. Since 0.1-3 it is possible to override the MAC address of the first interface with `--mac <MAC>` which makes it possible to script the IP address retrieval from `arp -a`.
 
 If you are not running any discovery/bonjour services in the guest to find the IPs, you can typically find the IP addresses of your VMs using `arp -a`. Currently macOS VMs in NAT mode will be on the interface `bridge100`, typically with `192.168.64.x` IP address (where `x=1` is the host so the other numbers are VMs). There doesn't seem to be any direct control over the networking, but apparently the guests can talk to the host and NAT out, but can't talk to each other even though they appear on the same subnet.
+
+### File Sharing
+
+Since macOS 13 (Ventura) VirtIOFS is supported both in the guest and host macOS. A typical use is something like `--vol /Users/myself/shared:automount` which will make the contents of the `/Users/myself/shared` directory on the host avaiable as `/Volumes/My Shared Files` in the guest macOS. If `automount` is not specified, then the guest OS has to mount the virtiofs share (via `mount_virtiofs` or similar) by specifying its name (tag) which defaults to `macosvm`, but can be set, e.g., by appending `:name=mysharename`.
