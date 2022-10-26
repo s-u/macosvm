@@ -1,5 +1,5 @@
 ## macosvm
-`macosvm` is a command line tool which allows creating and running of virtual machines on macOS 12 (Monterey) using the new Virtualization framework. It has been primarily developed for running macOS guest opearting systems inside virtual machines on M1-based Macs (arm64) with macOS hosts to support CI/CD such as GitHub M1-based runners and our R builds.
+`macosvm` is a command line tool which allows creating and running of virtual machines on macOS 12 (Monterey) and higher using the new Virtualization framework. It has been primarily developed for running macOS guest opearting systems inside virtual machines on M1-based Macs (arm64) with macOS hosts to support CI/CD such as GitHub M1-based runners and our R builds.
 
 ### Download
 See [releases](https://github.com/s-u/macosvm/releases) for downloads of released binaries (arm64 macOS 12 and higher only). See [NEWS](https://github.com/s-u/macosvm/blob/master/NEWS.md) for latest changes.
@@ -8,7 +8,7 @@ See [releases](https://github.com/s-u/macosvm/releases) for downloads of release
 The project can be built either with `xcodebuild` or `make`. The former requires Xcode installation while the latter only requires command line tools (see `xcode-select --install`).
 
 ### Quick Start
-The tools requires macOS 12 (Monterey) since that is the first system implementing the necessary pieces of the Virtualization framework. To create a macOS guest VM you need the following steps:
+The tools requires at least macOS 12 (Monterey) since that is the first system implementing the necessary pieces of the Virtualization framework. To create a macOS guest VM you need the following steps:
 
 ```
 ## Download the desired macOS ipsw image, e.g.:
@@ -21,7 +21,7 @@ macosvm --disk disk.img,size=32g --aux aux.img --restore UniversalMac_12.0.1_21A
 macosvm -g vm.json
 ```
 
-A full list of ipsw images for all versions of MacOS is availabe [here](https://mrmacintosh.com/apple-silicon-m1-full-macos-restore-ipsw-firmware-files-database/).
+A full list of ipsw images for all versions of macOS is availabe [here](https://mrmacintosh.com/apple-silicon-m1-full-macos-restore-ipsw-firmware-files-database/).
 
 After your started the VM it will go through the Apple Setup Assistant - you need the GUI to get through that. Once done, I strongly recommend going to Sharing system preferences, setting a unique name and enabling Remote Login and Screen Sharing. Then you can shut down the VM (using Shut Down in the macOS guest). Note that the default is to use NAT networking and your VM will show up on your host's network (details below) so you can use Finder to connect to its screen even if you start without the GUI.
 
