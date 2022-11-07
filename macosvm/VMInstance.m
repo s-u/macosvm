@@ -462,6 +462,47 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 NSLog(@" + Bridged network to %@", brInterface);
                 networkDevice.attachment = [[VZBridgedNetworkDeviceAttachment alloc] initWithInterface:brInterface];
                 [netList addObject: networkDevice];
+            } else if (type && [type isEqualToString:@"unix"]) {
+                NSString *path = d[@"path"];
+                struct sockaddr_un caddr = {
+                    .sun_family = AF_UNIX,
+                };
+                struct sockaddr_un addr = {
+                    .sun_family = AF_UNIX,
+                    .sun_path = "/tmp/slirp"
+                };
+                NSFileHandle *fh;
+                int buflen = 4 * 1024 * 1024;
+                int fd;
+
+                NSLog(@" + UNIX domain socket based network");
+
+		if (path) {
+                    strncpy(addr.sun_path, [path UTF8String], sizeof(addr.sun_path) - 1);
+                }
+                snprintf(caddr.sun_path, sizeof(caddr.sun_path) - 1, "/tmp/macosvm.pipe.%d", getpid());
+
+                unlink(caddr.sun_path);
+                fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+                if (bind(fd, (struct sockaddr *)&caddr, sizeof(caddr))) {
+                    fprintf(stderr, "Could not bind UNIX socket to '%s'\n", addr.sun_path);
+                    @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                                            [NSString stringWithFormat:@"Could not bind UNIX socket to '%s'", addr.sun_path]
+                                                 userInfo:nil];
+                }
+                if (connect(fd, (struct sockaddr *)&addr, sizeof(addr))) {
+                    fprintf(stderr, "Could not connect to UNIX socket '%s'\n", addr.sun_path);
+                    @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                                            [NSString stringWithFormat:@"Could not connect to UNIX socket '%s'", addr.sun_path]
+                                                 userInfo:nil];
+                }
+
+                /* Try to increase buffer size so we don't run into stalls too quickly */
+                setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &buflen, sizeof(buflen));
+                setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &buflen, sizeof(buflen));
+
+                fh = [[NSFileHandle alloc] initWithFileDescriptor:fd];
+                networkDevice.attachment = [[VZFileHandleNetworkDeviceAttachment alloc] initWithFileHandle:fh];
             }
 	    NSString *macAddr = d[@"mac"];
 	    if (macAddr) {

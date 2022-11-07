@@ -70,9 +70,11 @@ Unless run with `-g`/`--gui` the tool will run solely as a command line tool and
 
 ### Networking
 
-The default setup is NAT networking which means your host will allocate a separate local network for the VM. You can use `--net <type>[:{<mac>|<iface>}]` so specify different network adapters and different types. `macosvm` currently implements `nat` and `bridge` where the latter requires the name of the host interface to bridge to (if left blank the first interface is used). Note, however, that bridging requires a special entitlement that can only be obtained from Apple so it is not supported by "normal" binaries. Since 0.1-3 it is possible to override the MAC address of the first interface with `--mac <MAC>` which makes it possible to script the IP address retrieval from `arp -a`.
+The default setup is NAT networking which means your host will allocate a separate local network for the VM. You can use `--net <type>[:{<mac>|<iface>}]` so specify different network adapters and different types. `macosvm` currently implements `nat`, `bridge` and `unix`. `bridge` requires the name of the host interface to bridge to (if left blank the first interface is used). Note, however, that bridging requires a special entitlement that can only be obtained from Apple so it is not supported by "normal" binaries. Since 0.1-3 it is possible to override the MAC address of the first interface with `--mac <MAC>` which makes it possible to script the IP address retrieval from `arp -a`.
 
 If you are not running any discovery/bonjour services in the guest to find the IPs, you can typically find the IP addresses of your VMs using `arp -a`. Currently macOS VMs in NAT mode will be on the interface `bridge100`, typically with `192.168.64.x` IP address (where `x=1` is the host so the other numbers are VMs). There doesn't seem to be any direct control over the networking, but apparently the guests can talk to the host and NAT out, but can't talk to each other even though they appear on the same subnet.
+
+The `unix`target is useful in combination with a [slirp proxy](https://github.com/agraf/slirp-unix) which then allows NAT like access in environments that are sensitive to network configuration.
 
 ### File Sharing
 
