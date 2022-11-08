@@ -44,6 +44,7 @@
 - (void) addNetwork: (NSString*) type mac:(NSString*) mac;
 - (void) addNetwork: (NSString*) type interface: (NSString*) iface;
 - (void) addNetwork: (NSString*) type interface: (NSString*) iface mac: (NSString*) mac;
+- (void) addNetworkSpecification: (NSDictionary*) spec;
 - (void) addDirectoryShare: (NSString*) path volume: (NSString*) volume readOnly: (BOOL) readOnly;
 - (void) addDirectoryShares: (NSArray*) paths volume: (NSString*) volume readOnly: (BOOL) readOnly;
 - (void) addAutomountDirectoryShare: (NSString*) path readOnly: (BOOL) readOnly;

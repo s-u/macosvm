@@ -4,6 +4,7 @@
 #include <sys/clonefile.h>
 #include <unistd.h>
 #include <sys/errno.h>
+#include <sys/stat.h>
 
 @implementation VMSpec
 
@@ -161,6 +162,10 @@
         @"type" : type
     };
     networks = networks ? [networks arrayByAddingObject:root] : @[root];
+}
+
+- (void) addNetworkSpecification: (NSDictionary*) spec {
+    networks = networks ? [networks arrayByAddingObject:spec] : @[spec];
 }
 
 - (void) addNetwork: (NSString*) type mac:(NSString*) mac {
@@ -428,9 +433,11 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     self.entropyDevices = @[[[VZVirtioEntropyDeviceConfiguration alloc] init]];
 
     NSMutableArray *netList = [NSMutableArray arrayWithCapacity: networks ? [networks count] : 1];
+    int net_count = 0;
     if (networks) for (NSDictionary *d in networks) {
             VZVirtioNetworkDeviceConfiguration *networkDevice = [[VZVirtioNetworkDeviceConfiguration alloc] init];
             NSString *type = d[@"type"];
+            net_count++;
 	    /* default to NAT */
             if (!type || [type isEqualToString:@"nat"]) {
                 NSLog(@" + NAT network");
@@ -464,6 +471,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 [netList addObject: networkDevice];
             } else if (type && [type isEqualToString:@"unix"]) {
                 NSString *path = d[@"path"];
+                int mtu = 1500;
                 struct sockaddr_un caddr = {
                     .sun_family = AF_UNIX,
                 };
@@ -476,30 +484,59 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 int rcvbuflen = 6 * 1024 * 1024;
                 int fd;
 
-                NSLog(@" + UNIX domain socket based network");
+                id smtu = d[@"mtu"];
+                if (smtu) {
+                    if ([smtu isKindOfClass:[NSString class]])
+                        mtu = (int) ((NSString*)smtu).integerValue;
+                    else if ([smtu isKindOfClass:[NSNumber class]])
+                        mtu = (int) ((NSNumber*)smtu).integerValue;
+                    if (mtu < 1500)
+                        @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                                                [NSString stringWithFormat:@"MTU value %d is invalid, it must be at least 1500", mtu]
+                                                     userInfo:nil];
+                }
+
+                NSLog(@" + UNIX domain socket network");
 
 		if (path)
                     strncpy(addr.sun_path, [path UTF8String], sizeof(addr.sun_path) - 1);
-                /* FIXME: use NSTemporaryDirectory() and/or allow overrides */
-                snprintf(caddr.sun_path, sizeof(caddr.sun_path) - 1, "/tmp/macosvm.net.%d", getpid());
 
-                unlink(caddr.sun_path);
+                const char *tsd = getenv("TMPSOCKDIR");
+                NSString *tmpDir = (tsd && *tsd) ? [NSString stringWithUTF8String: tsd] : NSTemporaryDirectory();
+                NSString *tmpSock = [NSString stringWithFormat: @"%@/macosvm.net.%d.%d", tmpDir, (int) getpid(), net_count];
+                if ([tmpSock lengthOfBytesUsingEncoding:NSUTF8StringEncoding] >= sizeof(caddr.sun_path))
+                    @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                                            [NSString stringWithFormat:@"Temporary socket path '%@' is too long, consider setting TMPSOCKDIR to shorter path.", tmpSock]
+                                                 userInfo:nil];
+                strcpy(caddr.sun_path, [tmpSock UTF8String]);
+                { /* for security reasons we don't allow the target to be anything other
+                     that a previously created socket (especially not a link) */
+                    struct stat st;
+                    if (lstat(caddr.sun_path, &st) == 0) { /* target exists */
+                        if ((st.st_mode & S_IFMT) != S_IFSOCK)
+                            @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                                                    [NSString stringWithFormat:@"Temporary socket path '%@' already exists and is not a socket.", tmpSock]
+                                                         userInfo:nil];
+                        /* ok, unlink it */
+                        if (unlink(caddr.sun_path))
+                            @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                                                    [NSString stringWithFormat:@"Cannot remove stale temporary socket '%@': %s", tmpSock, strerror(errno)]
+                                                         userInfo:nil];
+                    } /* if it doesn't exist, we're all good */
+                }
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
                 /* bind is mandatory */
-                if (bind(fd, (struct sockaddr *)&caddr, sizeof(caddr))) {
-                    fprintf(stderr, "Could not bind UNIX socket to '%s'\n", addr.sun_path);
+                if (bind(fd, (struct sockaddr *)&caddr, sizeof(caddr)))
                     @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                            [NSString stringWithFormat:@"Could not bind UNIX socket to '%s'", addr.sun_path]
+                                            [NSString stringWithFormat:@"Could not bind UNIX socket to '%s': %s", caddr.sun_path, strerror(errno)]
                                                  userInfo:nil];
-                }
-                /* FIXME: unlink(addr.sun_path) on exit (both clean and abnormal) */
+                NSLog(@"   Bound to '%s', connecting to '%s'", caddr.sun_path, addr.sun_path);
+                add_unlink_on_exit(caddr.sun_path);
                 /* connect is optional for DGRAM, but fixes the peer so we force the desired target */
-                if (connect(fd, (struct sockaddr *)&addr, sizeof(addr))) {
-                    fprintf(stderr, "Could not connect to UNIX socket '%s'\n", addr.sun_path);
+                if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)))
                     @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                            [NSString stringWithFormat:@"Could not connect to UNIX socket '%s'", addr.sun_path]
+                                            [NSString stringWithFormat:@"Could not connect to UNIX socket '%s': %s", addr.sun_path, strerror(errno)]
                                                  userInfo:nil];
-                }
 
                 /* according to VZFileHandleNetworkDeviceAttachment docs SO_RCVBUF has to be
                    at least double of SO_SNDBUF, ideally 4x. Modern macOS have kern.ipc.maxsockbuf
@@ -516,8 +553,18 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 }
 
                 fh = [[NSFileHandle alloc] initWithFileDescriptor:fd];
-                networkDevice.attachment = [[VZFileHandleNetworkDeviceAttachment alloc] initWithFileHandle:fh];
-                /* FIXME: MTU ? default 1500, max 64k */
+                VZFileHandleNetworkDeviceAttachment *fhda = [[VZFileHandleNetworkDeviceAttachment alloc] initWithFileHandle:fh];
+                if (mtu > 1500) {
+#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
+		    if (@available(macOS 13, *))
+                        fhda.maximumTransmissionUnit = mtu;
+                    else
+                        fprintf(stderr, "WARNING: your macOS does not support MTU changes, using default 1500\n");
+#else
+                    fprintf(stderr, "WARNING: This build does not support MTU changes, using default 1500\n");
+#endif
+                }
+                networkDevice.attachment = fhda;
             }
 	    NSString *macAddr = d[@"mac"];
 	    if (macAddr) {
