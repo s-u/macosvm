@@ -472,24 +472,28 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                     .sun_path = "/tmp/slirp"
                 };
                 NSFileHandle *fh;
-                int buflen = 4 * 1024 * 1024;
+                int sndbuflen = 2 * 1024 * 1024; /* for SO_RCVBUF/SO_SNDBUF - see below */
+                int rcvbuflen = 6 * 1024 * 1024;
                 int fd;
 
                 NSLog(@" + UNIX domain socket based network");
 
-		if (path) {
+		if (path)
                     strncpy(addr.sun_path, [path UTF8String], sizeof(addr.sun_path) - 1);
-                }
-                snprintf(caddr.sun_path, sizeof(caddr.sun_path) - 1, "/tmp/macosvm.pipe.%d", getpid());
+                /* FIXME: use NSTemporaryDirectory() and/or allow overrides */
+                snprintf(caddr.sun_path, sizeof(caddr.sun_path) - 1, "/tmp/macosvm.net.%d", getpid());
 
                 unlink(caddr.sun_path);
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+                /* bind is mandatory */
                 if (bind(fd, (struct sockaddr *)&caddr, sizeof(caddr))) {
                     fprintf(stderr, "Could not bind UNIX socket to '%s'\n", addr.sun_path);
                     @throw [NSException exceptionWithName:@"VMConfigNet" reason:
                                             [NSString stringWithFormat:@"Could not bind UNIX socket to '%s'", addr.sun_path]
                                                  userInfo:nil];
                 }
+                /* FIXME: unlink(addr.sun_path) on exit (both clean and abnormal) */
+                /* connect is optional for DGRAM, but fixes the peer so we force the desired target */
                 if (connect(fd, (struct sockaddr *)&addr, sizeof(addr))) {
                     fprintf(stderr, "Could not connect to UNIX socket '%s'\n", addr.sun_path);
                     @throw [NSException exceptionWithName:@"VMConfigNet" reason:
@@ -497,12 +501,23 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                                                  userInfo:nil];
                 }
 
-                /* Try to increase buffer size so we don't run into stalls too quickly */
-                setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &buflen, sizeof(buflen));
-                setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &buflen, sizeof(buflen));
+                /* according to VZFileHandleNetworkDeviceAttachment docs SO_RCVBUF has to be
+                   at least double of SO_SNDBUF, ideally 4x. Modern macOS have kern.ipc.maxsockbuf
+                   of 8Mb, so we try 2Mb + 6Mb first and fall back by halving */
+                while (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuflen, sizeof(sndbuflen)) ||
+                       setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuflen, sizeof(rcvbuflen))) {
+                    sndbuflen /= 2;
+                    rcvbuflen /= 2;
+                    if (rcvbuflen < 128 * 1024) {
+                        @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                                                [NSString stringWithFormat:@"Could not set socket buffer sizes: %s", strerror(errno)]
+                                                     userInfo:nil];
+                    }
+                }
 
                 fh = [[NSFileHandle alloc] initWithFileDescriptor:fd];
                 networkDevice.attachment = [[VZFileHandleNetworkDeviceAttachment alloc] initWithFileHandle:fh];
+                /* FIXME: MTU ? default 1500, max 64k */
             }
 	    NSString *macAddr = d[@"mac"];
 	    if (macAddr) {
