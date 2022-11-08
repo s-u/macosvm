@@ -45,6 +45,12 @@ static const char *version = "0.1-3";
     NSLog(@"Window will close");
 }
 
+static void cleanup();
+
+- (void)applicationWillTerminate:(NSNotification *)notification {
+    cleanup();
+}
+
 /* IMPORTANT: delegate methods are called from VM's queue */
 - (void)guestDidStopVirtualMachine:(VZVirtualMachine *)virtualMachine {
     NSLog(@"VM %@ guest stopped", virtualMachine);
@@ -299,7 +305,7 @@ static void cleanup() {
     int i = 0;
     while (i < MAX_UNLINKS) {
         if (unlink_me[i]) {
-            printf("INFO: removing ephemeral clone %s\n", unlink_me[i]);
+            printf("INFO: removing ephemeral %s\n", unlink_me[i]);
             unlink(unlink_me[i]);
             free(unlink_me[i]);
             unlink_me[i] = 0;
@@ -321,13 +327,20 @@ static void sig_handler(int sig) {
     raise(sig);
 }
 
+static int unlink_handling_active = 0;
+
 static void setup_unlink_handling() {
+    if (unlink_handling_active)
+        return;
+
     /* regular termination */
     atexit(cleanup);
     /* signal termination */
     orig_INT = signal(SIGINT, sig_handler);
     orig_TERM= signal(SIGTERM, sig_handler);
     orig_KILL= signal(SIGKILL, sig_handler);
+
+    unlink_handling_active = 1;
 }
 
 int main(int ac, char**av) {
@@ -482,6 +495,7 @@ int main(int ac, char**av) {
                 NSString *ifName = nil;
                 NSString *type = nil;
                 NSString *mac = nil;
+                NSNumber *mtu = nil;
                 char *c, *dop;
                 if (++i >= ac) {
                     fprintf(stderr, "ERROR: %s missing network specification", av[i-1]);
@@ -507,12 +521,52 @@ int main(int ac, char**av) {
                     printf("INFO: add bridged network %s%s\n",
                            ifName ? "on interface " : "(no interface specified!)",
                            ifName ? [ifName UTF8String] : "");
+                } else if (!strncmp(av[i], "unix", 4)) {
+                    char *c = dop;
+                    type = @"unix";
+                    if (!ifName) {
+                        fprintf(stderr, "ERROR: unix socket network requires socket path\n");
+                        return 1;
+                    }
+                    c = strchr(c, ',');
+                    if (c) { /* additional options */
+                        *c = 0; c++;
+                        ifName = [NSString stringWithUTF8String: dop];
+                        dop = c;
+                        while (c) {
+                            c = strchr(c, ',');
+                            if (c) { *c = 0; c++; }
+                            if (!strncmp(dop, "mac=", 4))
+                                mac = [NSString stringWithUTF8String: dop + 4];
+                            else if (!strncmp(dop, "mtu=", 4))
+                                mtu = [NSNumber numberWithInteger: atoi(dop + 4)];
+                            else {
+                                fprintf(stderr, "ERROR: invalid option '%s' in --net unix\n", dop);
+                                return 1;
+                            }
+                        }
+                    }
                 } else {
                     fprintf(stderr, "ERROR: invalid network specification '%s'\n", av[i]);
                     return 1;
                 }
 
-                if (ifName)
+                if ([type isEqualToString: @"unix"]) { /* in unix we (ab)use ifName for socket path */
+                    if (mac && mtu)
+                        [spec addNetworkSpecification: @{
+                                @"type": type, @"path": ifName, @"mac": mac, @"mtu": mtu }];
+                    else if (mac)
+                        [spec addNetworkSpecification: @{
+                                @"type": type, @"path": ifName, @"mac": mac }];
+                    else if (mtu)
+                        [spec addNetworkSpecification: @{
+                                @"type": type, @"path": ifName, @"mtu": mtu }];
+                    else
+                        [spec addNetworkSpecification: @{
+                                @"type": type, @"path": ifName }];
+                } else if (ifName && mac)
+                    [spec addNetwork:type interface:ifName mac:mac];
+                else if (ifName)
                     [spec addNetwork:type interface:ifName];
 		else if (mac)
 		    [spec addNetwork:type mac:mac];
@@ -521,8 +575,21 @@ int main(int ac, char**av) {
                 continue;
             }
             switch(av[i][1]) {
-                case 'h': printf("\n\
- Usage: %s [-g|--[no-]gui] [--[no-]audio] [--restore <path>] [--ephemeral]\n\
+                case 'h':
+                    {
+                        const char *caps12 = "", *caps13 = "";
+                        if (@available(macOS 12, *)) {
+#ifdef __arm64__
+                            caps12 = "Capabilites: macOS guest, vol";
+#else
+                            caps12 = "Capabilites: vol";
+#endif
+                        }
+                        if (@available(macOS 13, *))
+                            caps13 = ", vol:automount, net:unix:mtu";
+                        printf("\n\
+ Usage: %s [-g|--[no-]gui] [--[no-]audio]\n\
+           [--restore <path>] [--ephemeral]\n\
            [--disk <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
            [--vol <path>[,ro][,{name=<name>|automount}]]\n\
            [--net <spec>] [--mac <addr>] [-c <cpu>] [-m <ram>]\n\
@@ -537,9 +604,12 @@ int main(int ac, char**av) {
  and only --gui / --audio options are honored.\n\
  Size specifications allow suffix k, m and g for the powers of 1024.\n\
 \n\
- Network specification is <type>[:<options>] where <type> is either\n\
- nat or br. For nat <options> is a MAC address to assign to the interface,\n\
- for br it is the interface to bridge (requires special entitlement!).\n\
+ Network specification is <type>[:<options>], one of the following:\n\
+ nat[:<mac>] (NAT network, default, most common), br[:<interface>]\n\
+ (bridged network on <interface>), unix:<socket>[,mac=<mac>][,mtu=<mtu>]\n\
+ (unix socket to which all network traffic will be routed).\n\
+ Note that br requires special entitlement rarely given by Apple.\n\
+\n\
  Note that the --mac option is special and will override the first interface\n\
  from the configuration file and/or --net (typically used with --ephemeral).\n\
 \n\
@@ -550,7 +620,9 @@ int main(int ac, char**av) {
  %s -g vm.json\n\
 \n\
  Experimental, use at your own risk!\n\
-\n", av[0], av[0], av[0], av[0], av[0]); return 0;
+ %s%s\n\n", av[0], av[0], av[0], av[0], av[0], caps12, caps13);
+                        return 0;
+                    }
                 case 'c':
                     if (av[i][2]) spec->cpus = atoi(av[i] + 2); else {
                         if (++i >= ac) {
@@ -613,6 +685,7 @@ int main(int ac, char**av) {
             }
             @catch (NSException *ex) {
                 NSLog(@"ERROR: %@", [ex description]);
+                cleanup();
                 return 1;
             }
         }
@@ -631,7 +704,8 @@ int main(int ac, char**av) {
            the already created clones can be unlinked */
         setup_unlink_handling();
         [spec cloneAllStorage];
-    }
+    } else if (unlink_me[0]) /* outside of ephemeral unix sockets also use this */
+        setup_unlink_handling();
 
     [NSApplication sharedApplication];
     NSApp.delegate = main;
