@@ -2,7 +2,7 @@
 
 #import "VMInstance.h"
 
-static const char *version = "0.1-4";
+static const char *version = "0.2-0";
 
 @interface App : NSObject <NSApplicationDelegate, NSWindowDelegate, VZVirtualMachineDelegate> {
 @public
@@ -355,13 +355,67 @@ int main(int ac, char**av) {
     BOOL create = NO, ephemeral = NO;
     NSString *configPath = nil;
     NSString *macOverride = nil;
+    int i = 0;
 
     spec->use_serial = YES; /* we default to registering a serial console */
-    /* FIXME: the parameters are a mess, in particular the config overrides
-       everything that is defined there which is probably not a good idea.
-       It would be better to have the parameters create a config and merge
-       them instead in some way ... */
-    int i = 0;
+
+    /* options that require an argument so we can skip them */
+    const char *multi_options[] = {
+        "--restore", "--vol", "--disk", "--usb", "--aux", "--initrd", "--net", 0
+    };
+    /* in retrospect this was a bad idea, but we have to find the config file
+       first since we want the options to override the contents of the config
+       file and not vice-versa. Hence Pass #1: find and load the config */
+    while (++i < ac)
+        if (av[i][0] == '-') {
+            switch (av[i][1]) {
+            case '-':
+                {
+                    const char **opt = multi_options;
+                    if (!strcmp(av[i], "--init") || !strcmp(av[i], "--restore"))
+                        create = YES;
+                    while (*opt)
+                        if (!strcmp(av[i], *(opt++))) {
+                            i++;
+                            break;
+                        }
+                    break;
+                }
+                /* special case: -c and -r can be either single or multi */
+            case 'r':
+            case 'c':
+                if (!(av[i][2]))
+                    i++;
+                break;
+            }
+        } else {
+            if (configPath) {
+                fprintf(stderr, "ERROR: configuration path can only be specified once\n");
+                return 1;
+            }
+            configPath = [NSString stringWithUTF8String:av[i]];
+            @try {
+                NSInputStream *istr = [NSInputStream inputStreamWithFileAtPath:configPath];
+                [istr open];
+                if ([istr streamError]) {
+                    if (!create) { /* only in create mode (init/restore) it's ok to not have the config */
+                        NSLog(@"Cannot open '%@': %@", configPath, [istr streamError]);
+                        @throw [NSException exceptionWithName:@"ConfigError" reason:[[istr streamError] description] userInfo:nil];
+                    }
+                } else {
+                    [spec readFromJSON:istr];
+                }
+                [istr close];
+            }
+            @catch (NSException *ex) {
+                NSLog(@"ERROR: %@", [ex description]);
+                cleanup();
+                return 1;
+            }
+        }
+
+    /* Pass #2: process the options */
+    i = 0;
     while (++i < ac)
         if (av[i][0] == '-') {
             if (av[i][1] == 'g' || !strcmp(av[i], "--gui")) {
@@ -671,30 +725,6 @@ int main(int ac, char**av) {
                 if (!strcmp(av[i], "--no-gui")) { main.useGUI = NO; continue; }
                 if (!strcmp(av[i], "--no-audio")) { spec->audio = NO; continue; }
                 if (!strcmp(av[i], "--audio")) { spec->audio = YES; continue; }
-            }
-        } else {
-            if (configPath) {
-                fprintf(stderr, "ERROR: configuration path can only be specified once\n");
-                return 1;
-            }
-            configPath = [NSString stringWithUTF8String:av[i]];
-            @try {
-                NSInputStream *istr = [NSInputStream inputStreamWithFileAtPath:configPath];
-                [istr open];
-                if ([istr streamError]) {
-                    if (!create) {
-                        NSLog(@"Cannot open '%@': %@", configPath, [istr streamError]);
-                        @throw [NSException exceptionWithName:@"ConfigError" reason:[[istr streamError] description] userInfo:nil];
-                    }
-                } else {
-                    [spec readFromJSON:istr];
-                }
-                [istr close];
-            }
-            @catch (NSException *ex) {
-                NSLog(@"ERROR: %@", [ex description]);
-                cleanup();
-                return 1;
             }
         }
 
