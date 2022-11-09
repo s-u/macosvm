@@ -5,6 +5,9 @@
 #include <unistd.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
+/* for socket networking */
+#include <sys/un.h>
+#include <sys/socket.h>
 
 @implementation VMSpec
 
@@ -710,8 +713,14 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                     @throw [NSException exceptionWithName:@"VMConfigDiskStorageError" reason:[err description] userInfo:nil];
                 if ([tmp isEqualToString:@"disk"])
                     [std addObject:[[VZVirtioBlockDeviceConfiguration alloc] initWithAttachment:a]];
-                else
-                    [std addObject:[[VZUSBMassStorageDeviceConfiguration alloc] initWithAttachment:a]];
+                else {
+#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
+                    if (@available(macOS 13, *))
+                        [std addObject:[[VZUSBMassStorageDeviceConfiguration alloc] initWithAttachment:a]];
+                    else
+#endif
+                        @throw [NSException exceptionWithName:@"VMConfigDiskStorageError" reason:@"USB storage is not supported by this macOS/build" userInfo:nil];
+                }
             }
             if ([tmp isEqualToString:@"aux"]) {
                 NSError *err = nil;
