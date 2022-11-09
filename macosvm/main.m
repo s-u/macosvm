@@ -319,11 +319,15 @@ static void cleanup() {
 static sig_t orig_INT;
 static sig_t orig_TERM;
 static sig_t orig_KILL;
+static sig_t orig_ABRT;
 
 static void sig_handler(int sig) {
     cleanup();
     /* restore original behavior */
-    signal(sig, (sig == SIGINT) ? orig_INT : ((sig == SIGTERM) ? orig_TERM : ((sig == SIGKILL) ? orig_KILL : SIG_DFL)));
+    signal(sig, (sig == SIGINT) ? orig_INT :
+          ((sig == SIGTERM) ? orig_TERM :
+           ((sig == SIGKILL) ? orig_KILL :
+            ((sig == SIGABRT) ? orig_ABRT : SIG_DFL))));
     raise(sig);
 }
 
@@ -339,6 +343,7 @@ static void setup_unlink_handling() {
     orig_INT = signal(SIGINT, sig_handler);
     orig_TERM= signal(SIGTERM, sig_handler);
     orig_KILL= signal(SIGKILL, sig_handler);
+    orig_ABRT= signal(SIGABRT, sig_handler);
 
     unlink_handling_active = 1;
 }
