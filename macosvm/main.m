@@ -392,6 +392,9 @@ int main(int ac, char**av) {
 	    if (!strcmp(av[i], "--no-serial")) {
 		spec->use_serial = NO; continue;
 	    }
+	    if (!strcmp(av[i], "--spice")) { /* SPICE clipboard sharing */
+		spec->spice = YES; continue;
+	    }
 	    if (!strcmp(av[i], "--mac")) {
                 if (++i >= ac) {
                     fprintf(stderr, "ERROR: %s missing MAC address", av[i-1]);

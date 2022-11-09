@@ -22,6 +22,7 @@
 #endif
     use_serial = YES;
     pty = NO;
+    spice = NO;
     ptyPath = nil;
     return self;
 }
@@ -669,6 +670,19 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 #endif
     if (!self.pointingDevices || [self.pointingDevices count] == 0)
         self.pointingDevices = @[[[VZUSBScreenCoordinatePointingDeviceConfiguration alloc] init]];
+
+#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
+    if (@available(macOS 13, *)) if (spice) { /* SPICE-based clipboard sharing */
+        VZVirtioConsoleDeviceConfiguration *consoleDevice = [[VZVirtioConsoleDeviceConfiguration alloc] init];
+        VZVirtioConsolePortConfiguration *consolePort = [[VZVirtioConsolePortConfiguration alloc] init];
+        consolePort.name = VZSpiceAgentPortAttachment.spiceAgentPortName;
+        VZSpiceAgentPortAttachment *spiceAgent = [[VZSpiceAgentPortAttachment alloc] init];
+        spiceAgent.sharesClipboard = YES;
+        consolePort.attachment = spiceAgent;
+        consoleDevice.ports[0] = consolePort;
+        self.consoleDevices = @[ consoleDevice ];
+    }
+#endif
 
 #ifdef MACOS_GUEST
     VZMacHardwareModel *hwm = hardwareModelData ? [[VZMacHardwareModel alloc] initWithDataRepresentation:hardwareModelData] : nil;
