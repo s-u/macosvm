@@ -659,7 +659,16 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 #endif
 
     self.keyboards = @[[[VZUSBKeyboardConfiguration alloc] init]];
-    self.pointingDevices = @[[[VZUSBScreenCoordinatePointingDeviceConfiguration alloc] init]];
+
+#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000 && defined(MACOS_GUEST))
+    if (@available(macOS 13, *)) {
+        self.pointingDevices = @[
+            [[VZUSBScreenCoordinatePointingDeviceConfiguration alloc] init], /* < macOS 13 guest */
+            [[VZMacTrackpadConfiguration alloc] init]]; /* macOS >= 13 guest */
+    }
+#endif
+    if (!self.pointingDevices || [self.pointingDevices count] == 0)
+        self.pointingDevices = @[[[VZUSBScreenCoordinatePointingDeviceConfiguration alloc] init]];
 
 #ifdef MACOS_GUEST
     VZMacHardwareModel *hwm = hardwareModelData ? [[VZMacHardwareModel alloc] initWithDataRepresentation:hardwareModelData] : nil;
