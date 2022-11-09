@@ -435,7 +435,7 @@ int main(int ac, char**av) {
                                      volume: vol ? [NSString stringWithUTF8String:vol] : @"macosvm"
                                    readOnly: readOnly];
             }
-            if (!strcmp(av[i], "--disk") || !strcmp(av[i], "--aux") || !strcmp(av[i], "--initrd")) {
+            if (!strcmp(av[i], "--disk") || !strcmp(av[i], "--usb") || !strcmp(av[i], "--aux") || !strcmp(av[i], "--initrd")) {
                 BOOL readOnly = NO;
                 BOOL keep = NO;
                 size_t create_size = 0;
@@ -496,7 +496,7 @@ int main(int ac, char**av) {
                 continue;
             }
             if (!strcmp(av[i], "--version")) {
-                printf("macosvm %s\n\nCopyright (C) 2021 Simon Urbanek\nThere is NO warranty.\nLicenses: GPLv2 or GPLv3\n", version);
+                printf("macosvm %s\n\nCopyright (C) 2022 Simon Urbanek\nThere is NO warranty.\nLicenses: GPLv2 or GPLv3\n", version);
                 return 0;
             }
             if (!strcmp(av[i], "--net")) {

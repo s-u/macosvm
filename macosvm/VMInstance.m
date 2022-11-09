@@ -701,14 +701,17 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
         BOOL ro = (d[@"readOnly"] && [d[@"readOnly"] boolValue]) ? YES : NO;
         if ((tmp = d[@"url"])) url = [NSURL URLWithString:tmp];
         if ((tmp = d[@"type"]) && (url || path)) {
-            if ([tmp isEqualToString:@"disk"]) {
+            if ([tmp isEqualToString:@"disk"] || [tmp isEqualToString:@"usb"]) {
                 NSError *err = nil;
                 NSURL *imageURL = url ? url : [NSURL fileURLWithPath:path];
-                NSLog(@" + disk image %@ (%@)", imageURL, ro ? @"read-only" : @"read-write");
+                NSLog(@" + %@ image %@ (%@)", tmp, imageURL, ro ? @"read-only" : @"read-write");
                 VZDiskImageStorageDeviceAttachment *a = [[VZDiskImageStorageDeviceAttachment alloc] initWithURL:imageURL readOnly:ro error:&err];
                 if (err)
                     @throw [NSException exceptionWithName:@"VMConfigDiskStorageError" reason:[err description] userInfo:nil];
-                [std addObject:[[VZVirtioBlockDeviceConfiguration alloc] initWithAttachment:a]];
+                if ([tmp isEqualToString:@"disk"])
+                    [std addObject:[[VZVirtioBlockDeviceConfiguration alloc] initWithAttachment:a]];
+                else
+                    [std addObject:[[VZUSBMassStorageDeviceConfiguration alloc] initWithAttachment:a]];
             }
             if ([tmp isEqualToString:@"aux"]) {
                 NSError *err = nil;
@@ -838,3 +841,8 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 }
 
 @end
+
+/* Local Variables:      */
+/* c-basic-offset: 4     */
+/* indent-tabs-mode: nil */
+/* End:                  */
