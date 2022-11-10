@@ -1,5 +1,17 @@
 ## NEWS
 
+### 0.2-0
+* command line parameters are now parsed __after__ the specified configuration file is loaded and will cause the settings to be __added__ to the configuration. This allows the use of pre-specified configurations which can be supplemented by command line arguments. This behavior is more intuitive, but different from 0.1 versions which is why we chose to increase the version.
+* added `--save <path>` which will write the resulting configuration after all arguments were parsed into a JSON file specified by `<path>`. Note that `--restore` already creates the configuration file without this option, so `--save` should only be used when it is desired to update an existing configuration augmented with command line options to create a new configuration file.
+
+### 0.1-4
+
+* `--nat unix:<socket>[,mac=<mac>][,mtu=<mtu>]` creates a network interface which routes network traffic to a unix socket `<socket>` on the host. The default (and minimum) MTU is 1500, but it can be increased. A temporary socket is created in the temporary directory by default, but the directory can be overridden by the `TMPSOCKDIR` environment variable.
+* ephemeral files are now also removed on `SIGABRT` which can happen if the Virtualization framework raises an execption
+* added support for `usb` disk type (macOS 13 and above only)
+* added support for Mac trackpad if both the guest and host are macOS 13
+* added `--spice` which will enable clipboard shaing between the host and guest using the SPICE protocol (experimental). Requires macOS 13 host and `spice-vdagent` in the guest. Due to an issue in the Apple VZ framework this currently only works with Linux guests (macOS guests crash).
+
 ### 0.1-3
 
 * MAC address of each network interface created will be shown at startup, e.g.:
@@ -10,9 +22,9 @@
 
 * `--net nat:<MAC>` defines a NAT network interface with a given pre-defined MAC address. Similarly, the interfaces in the `"networks"` configuration section can have `"mac"` keys that define the MAC address.
 
-* Additonal option `--mac <MAC>` on the command line will override the MAC address of the first interface, regardless how it was defined (configuration file or command line). This is useful when creating multiple VMs from the same configuration file, typically with `--ephemeral`.
+* additonal option `--mac <MAC>` on the command line will override the MAC address of the first interface, regardless how it was defined (configuration file or command line). This is useful when creating multiple VMs from the same configuration file, typically with `--ephemeral`.
 
-* Added support for VirtIOFS shared directories via `--vol` option. The syntax is `--vol <path>[,ro][,{name=<name>|automount}]` where `<path>` is the path on the host OS to share and `<name>` is the name (also known as "tag") of the share. On macOS 13 (Ventura) and higher `automount` option can be specified in which case the share is automatically mounted in `/Volumes/My Shared Files`. If not specifed, the share has to be mounted by name with `mount_virtiofs <name> <mountpoint>` in the guest OS.
+* added support for VirtIOFS shared directories via `--vol` option. The syntax is `--vol <path>[,ro][,{name=<name>|automount}]` where `<path>` is the path on the host OS to share and `<name>` is the name (also known as "tag") of the share. On macOS 13 (Ventura) and higher `automount` option can be specified in which case the share is automatically mounted in `/Volumes/My Shared Files`. If not specifed, the share has to be mounted by name with `mount_virtiofs <name> <mountpoint>` in the guest OS.
 
 * guest serial console is now also enabled in macOS guests (in `/dev/cu.virtio` and `/dev/tty.virtio`). Previous versions enabled it only for Linux guests. It can be explicitly disabled using `--no-serial` option.
 
