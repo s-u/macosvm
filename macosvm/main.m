@@ -551,7 +551,18 @@ int main(int ac, char**av) {
                 continue;
             }
             if (!strcmp(av[i], "--version")) {
-                printf("macosvm %s\n\nCopyright (C) 2022 Simon Urbanek\nThere is NO warranty.\nLicenses: GPLv2 or GPLv3\n", version);
+                const char *caps12 = "", *caps13 = "";
+                if (@available(macOS 12, *)) {
+#ifdef __arm64__
+                    caps12 = "Capabilites: macOS guest, vol";
+#else
+                    caps12 = "Capabilites: vol";
+#endif
+                }
+                if (@available(macOS 13, *))
+                    caps13 = ", vol:automount, net:unix:mtu, usb";
+                printf("macosvm %s\n\nCopyright (C) 2022 Simon Urbanek\nThere is NO warranty.\nLicenses: GPLv2 or GPLv3\n%s%s\n",
+                       version, caps12, caps13);
                 return 0;
             }
             if (!strcmp(av[i], "--save")) {
@@ -648,20 +659,10 @@ int main(int ac, char**av) {
             switch(av[i][1]) {
                 case 'h':
                     {
-                        const char *caps12 = "", *caps13 = "";
-                        if (@available(macOS 12, *)) {
-#ifdef __arm64__
-                            caps12 = "Capabilites: macOS guest, vol";
-#else
-                            caps12 = "Capabilites: vol";
-#endif
-                        }
-                        if (@available(macOS 13, *))
-                            caps13 = ", vol:automount, net:unix:mtu";
                         printf("\n\
  Usage: %s [-g|--[no-]gui] [--[no-]audio]\n\
            [--restore <path>] [--ephemeral]\n\
-           [--disk <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
+           [--{disk|usb} <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
            [--vol <path>[,ro][,{name=<name>|automount}]]\n\
            [--net <spec>] [--mac <addr>] [-c <cpu>] [-m <ram>]\n\
            [--no-serial] [--pty]   <config.json>\n\
@@ -691,7 +692,7 @@ int main(int ac, char**av) {
  %s -g vm.json\n\
 \n\
  Experimental, use at your own risk!\n\
- %s%s\n\n", av[0], av[0], av[0], av[0], av[0], caps12, caps13);
+ \n", av[0], av[0], av[0], av[0], av[0]);
                         return 0;
                     }
                 case 'c':
