@@ -3,6 +3,7 @@
 ### 0.2-0
 * command line parameters are now parsed __after__ the specified configuration file is loaded and will cause the settings to be __added__ to the configuration. This allows the use of pre-specified configurations which can be supplemented by command line arguments. This behavior is more intuitive, but different from 0.1 versions which is why we chose to increase the version.
 * added `--save <path>` which will write the resulting configuration after all arguments were parsed into a JSON file specified by `<path>`. Note that `--restore` already creates the configuration file without this option, so `--save` should only be used when it is desired to update an existing configuration augmented with command line options to create a new configuration file.
+* optional capabilities that depend on the host environment are listed as `Capabilities:` in the output of `--version`
 
 ### 0.1-4
 
