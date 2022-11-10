@@ -6,7 +6,7 @@
 
 ### 0.1-4
 
-* `--nat unix:<socket>[,mac=<mac>][,mtu=<mtu>]` creates a network interface which routes network traffic to a unix socket `<socket>` on the host. The default (and minimum) MTU is 1500, but it can be increased. A temporary socket is created in the temporary directory by default, but the directory can be overridden by the `TMPSOCKDIR` environment variable.
+* `--net unix:<socket>[,mac=<mac>][,mtu=<mtu>]` creates a network interface which routes network traffic to a unix socket `<socket>` on the host. The default (and minimum) MTU is 1500, but it can be increased (only on macOS 13 and higher). A temporary socket is created in the temporary directory by default, but the directory can be overridden by the `TMPSOCKDIR` environment variable.
 * ephemeral files are now also removed on `SIGABRT` which can happen if the Virtualization framework raises an execption
 * added support for `usb` disk type (macOS 13 and above only)
 * added support for Mac trackpad if both the guest and host are macOS 13
