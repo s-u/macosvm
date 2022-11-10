@@ -355,13 +355,14 @@ int main(int ac, char**av) {
     BOOL create = NO, ephemeral = NO;
     NSString *configPath = nil;
     NSString *macOverride = nil;
+    NSString *outputPath = nil;
     int i = 0;
 
     spec->use_serial = YES; /* we default to registering a serial console */
 
     /* options that require an argument so we can skip them */
     const char *multi_options[] = {
-        "--restore", "--vol", "--disk", "--usb", "--aux", "--initrd", "--net", 0
+        "--restore", "--vol", "--disk", "--usb", "--aux", "--initrd", "--net", "--save", 0
     };
     /* in retrospect this was a bad idea, but we have to find the config file
        first since we want the options to override the contents of the config
@@ -553,6 +554,14 @@ int main(int ac, char**av) {
                 printf("macosvm %s\n\nCopyright (C) 2022 Simon Urbanek\nThere is NO warranty.\nLicenses: GPLv2 or GPLv3\n", version);
                 return 0;
             }
+            if (!strcmp(av[i], "--save")) {
+                if (++i >= ac) {
+                    fprintf(stderr, "ERROR: %s missing file name\n", av[i - 1]);
+                    return 1;
+                }
+                outputPath = [NSString stringWithUTF8String: av[i]];
+                continue;
+            }
             if (!strcmp(av[i], "--net")) {
                 NSString *ifName = nil;
                 NSString *type = nil;
@@ -736,6 +745,20 @@ int main(int ac, char**av) {
 
     if (macOverride)
 	[spec setPrimaryMAC: macOverride];
+
+    if (outputPath) {
+        @try {
+            NSLog(@"Save configuration to %@ ...", outputPath);
+            NSOutputStream *ostr = [NSOutputStream outputStreamToFileAtPath:outputPath append:NO];
+            [ostr open];
+            [spec writeToJSON:ostr];
+            [ostr close];
+        }
+        @catch (NSException *ex) {
+            NSLog(@"ERROR: unable to save configuration to %@: %@", outputPath, [ex description]);
+            return 1;
+        }
+    }
 
     if (ephemeral) {
         /* register the callback first such that if soemthing fails in the middle
