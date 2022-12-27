@@ -666,7 +666,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 
 #if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000 && defined(MACOS_GUEST))
     if (@available(macOS 13, *)) {
-        self.pointingDevices = @[
+        if (macPlatform) self.pointingDevices = @[
             [[VZUSBScreenCoordinatePointingDeviceConfiguration alloc] init], /* < macOS 13 guest */
             [[VZMacTrackpadConfiguration alloc] init]]; /* macOS >= 13 guest */
     }
