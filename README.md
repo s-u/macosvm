@@ -74,7 +74,7 @@ The default setup is NAT networking which means your host will allocate a separa
 
 If you are not running any discovery/bonjour services in the guest to find the IPs, you can typically find the IP addresses of your VMs using `arp -a`. Currently macOS VMs in NAT mode will be on the interface `bridge100`, typically with `192.168.64.x` IP address (where `x=1` is the host so the other numbers are VMs). There doesn't seem to be any direct control over the networking, but apparently the guests can talk to the host and NAT out, but can't talk to each other even though they appear on the same subnet.
 
-The `unix`target is useful in combination with a [slirp proxy](https://github.com/agraf/slirp-unix) which then allows NAT like access in environments that are sensitive to network configuration.
+The `unix`target is useful in combination with a [slirp proxy](https://github.com/agraf/slirp-unix) (for binaries see [releases](https://github.com/s-u/slirp-unix/releases)) which then allows NAT like access in environments that are sensitive to network configuration.
 
 ### File Sharing
 
