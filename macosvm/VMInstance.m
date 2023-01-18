@@ -824,11 +824,25 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 }
 
 - (void) start_ {
-    [_virtualMachine startWithCompletionHandler:^(NSError *err) {
-        NSLog(@"start completed err=%@", err ? err : @"nil");
-        if (err)
-            @throw [NSException exceptionWithName:@"VMStartError" reason:[err description] userInfo:nil];
-    }];
+  id done = ^(NSError *err) {
+    NSLog(@"start completed err=%@", err ? err : @"nil");
+    if (err)
+        @throw [NSException exceptionWithName:@"VMStartError" reason:[err description] userInfo:nil];
+  };
+
+  if (@available(macOS 13.0, *)) {
+    VZMacOSVirtualMachineStartOptions *opts = [[VZMacOSVirtualMachineStartOptions alloc] init];
+    if (_spec->use_recovery) {
+      opts.startUpFromMacOSRecovery = TRUE;
+      NSLog(@"starting in recovery mode");
+    } else {
+      NSLog(@"starting in normal mode");
+    }
+    [_virtualMachine startWithOptions:opts completionHandler:done];
+  } else {
+    NSLog(@"starting in normal mode");
+    [_virtualMachine startWithCompletionHandler:done];
+  }
 }
 
 - (void) stop_ {

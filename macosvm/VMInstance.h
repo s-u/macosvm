@@ -26,7 +26,7 @@
 @public
     int cpus;
     unsigned long ram;
-    BOOL audio, use_serial, pty, spice;
+    BOOL audio, use_serial, pty, spice, use_recovery;
 }
 
 #ifdef MACOS_GUEST

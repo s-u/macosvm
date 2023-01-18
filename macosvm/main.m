@@ -450,6 +450,9 @@ int main(int ac, char**av) {
 	    if (!strcmp(av[i], "--spice")) { /* SPICE clipboard sharing */
 		spec->spice = YES; continue;
 	    }
+          if (!strcmp(av[i], "--recovery")) {
+        spec->use_recovery = YES; continue;
+          }
 	    if (!strcmp(av[i], "--mac")) {
                 if (++i >= ac) {
                     fprintf(stderr, "ERROR: %s missing MAC address", av[i-1]);
