@@ -450,9 +450,9 @@ int main(int ac, char**av) {
 	    if (!strcmp(av[i], "--spice")) { /* SPICE clipboard sharing */
 		spec->spice = YES; continue;
 	    }
-          if (!strcmp(av[i], "--recovery")) {
-        spec->use_recovery = YES; continue;
-          }
+	    if (!strcmp(av[i], "--recovery")) {
+		spec->use_recovery = YES; continue;
+	    }
 	    if (!strcmp(av[i], "--mac")) {
                 if (++i >= ac) {
                     fprintf(stderr, "ERROR: %s missing MAC address", av[i-1]);
@@ -664,7 +664,7 @@ int main(int ac, char**av) {
                     {
                         printf("\n\
  Usage: %s [-g|--[no-]gui] [--[no-]audio]\n\
-           [--restore <path>] [--ephemeral]\n\
+           [--restore <path>] [--ephemeral] [--recovery]\n\
            [--{disk|usb} <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
            [--vol <path>[,ro][,{name=<name>|automount}]]\n\
            [--net <spec>] [--mac <addr>] [-c <cpu>] [-m <ram>]\n\

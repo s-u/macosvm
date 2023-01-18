@@ -824,25 +824,23 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 }
 
 - (void) start_ {
-  id done = ^(NSError *err) {
-    NSLog(@"start completed err=%@", err ? err : @"nil");
-    if (err)
-        @throw [NSException exceptionWithName:@"VMStartError" reason:[err description] userInfo:nil];
-  };
+    void (^completionHandler)(NSError *errorOrNil) = ^(NSError *err) {
+        NSLog(@"start completed err=%@", err ? err : @"nil");
+        if (err)
+            @throw [NSException exceptionWithName:@"VMStartError" reason:[err description] userInfo:nil];
+    };
 
-  if (@available(macOS 13.0, *)) {
-    VZMacOSVirtualMachineStartOptions *opts = [[VZMacOSVirtualMachineStartOptions alloc] init];
-    if (_spec->use_recovery) {
-      opts.startUpFromMacOSRecovery = TRUE;
-      NSLog(@"starting in recovery mode");
-    } else {
-      NSLog(@"starting in normal mode");
-    }
-    [_virtualMachine startWithOptions:opts completionHandler:done];
-  } else {
-    NSLog(@"starting in normal mode");
-    [_virtualMachine startWithCompletionHandler:done];
-  }
+#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
+    /* recovery has been introduced in 13.0 */
+    if (@available(macOS 13.0, *)) {
+        VZMacOSVirtualMachineStartOptions *opts = [[VZMacOSVirtualMachineStartOptions alloc] init];
+        opts.startUpFromMacOSRecovery = _spec->use_recovery;
+        NSLog(@"starting macOS in %@ mode", _spec->use_recovery ? @"recovery" : @"normal");
+        [_virtualMachine startWithOptions:opts completionHandler:completionHandler];
+    } else
+#endif
+        /* macOS SDK <13.0 can only do normal start */
+        [_virtualMachine startWithCompletionHandler:completionHandler];
 }
 
 - (void) stop_ {
