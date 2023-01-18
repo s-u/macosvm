@@ -3,6 +3,8 @@
 ### 0.2-1
 * Linux guest would fail with "Number of pointing devices is greater than the maximum number supported" since VZ framework allows the choice of trackpad and USB only for macOS guests (#21, regression from 0.1-4).
 
+* Add `--recovery` option to start macOS VM in recovery mode (#22, thanks to Jim Lake)
+
 ### 0.2-0
 * command line parameters are now parsed __after__ the specified configuration file is loaded and will cause the settings to be __added__ to the configuration. This allows the use of pre-specified configurations which can be supplemented by command line arguments. This behavior is more intuitive, but different from 0.1 versions which is why we chose to increase the version.
 * added `--save <path>` which will write the resulting configuration after all arguments were parsed into a JSON file specified by `<path>`. Note that `--restore` already creates the configuration file without this option, so `--save` should only be used when it is desired to update an existing configuration augmented with command line options to create a new configuration file.
@@ -10,7 +12,7 @@
 
 ### 0.1-4
 
-* `--net unix:<socket>[,mac=<mac>][,mtu=<mtu>]` creates a network interface which routes network traffic to a unix socket `<socket>` on the host. The default (and minimum) MTU is 1500, but it can be increased (only on macOS 13 and higher). A temporary socket is created in the temporary directory by default, but the directory can be overridden by the `TMPSOCKDIR` environment variable.
+* `--net unix:<socket>[,mac=<mac>][,mtu=<mtu>]` creates a network interface which routes network traffic to a unix socket `<socket>` on the host. The default (and minimum) MTU is 1500, but it can be increased (only on macOS 13 and higher). A temporary socket is created in the temporary directory by default, but the directory can be overridden by the `TMPSOCKDIR` environment variable. (#20, thanks to Alexander Graf!)
 * ephemeral files are now also removed on `SIGABRT` which can happen if the Virtualization framework raises an execption
 * added support for `usb` disk type (macOS 13 and above only)
 * added support for Mac trackpad if both the guest and host are macOS 13
