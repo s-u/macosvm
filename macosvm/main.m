@@ -228,7 +228,7 @@ attachmentWasDisconnectedWithError:(NSError *)error {
             });
         } else {
 #endif
-            NSLog(@"Starting instnace...");
+            NSLog(@"Starting instance...");
             [vm start];
 #ifdef MACOS_GUEST
         }
@@ -538,7 +538,7 @@ int main(int ac, char**av) {
                     if (!f ||
                         fseek(f, create_size - 1, SEEK_SET) ||
                         fwrite("", 1, 1, f) != 1) {
-                        fprintf(stderr, "ERROR: canot create disk file %s\n", av[i]);
+                        fprintf(stderr, "ERROR: cannot create disk file %s\n", av[i]);
                         return 1;
                     }
                     fclose(f);
@@ -557,9 +557,9 @@ int main(int ac, char**av) {
                 const char *caps12 = "", *caps13 = "";
                 if (@available(macOS 12, *)) {
 #ifdef __arm64__
-                    caps12 = "Capabilites: macOS guest, vol";
+                    caps12 = "Capabilities: macOS guest, vol";
 #else
-                    caps12 = "Capabilites: vol";
+                    caps12 = "Capabilities: vol";
 #endif
                 }
                 if (@available(macOS 13, *))
@@ -708,7 +708,7 @@ int main(int ac, char**av) {
                         printf("INFO: CPUs: %d\n", spec->cpus);
                     }
                     if (spec->cpus < 1) {
-                        fprintf(stderr, "ERROR: invaild number of CPUs\n");
+                        fprintf(stderr, "ERROR: invalid number of CPUs\n");
                         return 1;
                     }
                     break;
@@ -765,7 +765,7 @@ int main(int ac, char**av) {
     }
 
     if (ephemeral) {
-        /* register the callback first such that if soemthing fails in the middle
+        /* register the callback first such that if something fails in the middle
            the already created clones can be unlinked */
         setup_unlink_handling();
         [spec cloneAllStorage];
