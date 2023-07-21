@@ -2,7 +2,7 @@
 
 #import "VMInstance.h"
 
-static const char *version = "0.2-1";
+static const char *version = "0.2-2";
 
 @interface App : NSObject <NSApplicationDelegate, NSWindowDelegate, VZVirtualMachineDelegate> {
 @public
