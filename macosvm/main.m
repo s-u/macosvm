@@ -667,7 +667,7 @@ int main(int ac, char**av) {
            [--restore <path>] [--ephemeral] [--recovery]\n\
            [--{disk|usb} <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
            [--vol <path>[,ro][,{name=<name>|automount}]]\n\
-           [--net <spec>] [--mac <addr>] [-c <cpu>] [-m <ram>]\n\
+           [--net <spec>] [--mac <addr>] [-c <cpu>] [-r <ram>]\n\
            [--no-serial] [--pty]   <config.json>\n\
         %s --version\n\
         %s -h\n\
