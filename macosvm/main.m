@@ -362,7 +362,7 @@ int main(int ac, char**av) {
 
     /* options that require an argument so we can skip them */
     const char *multi_options[] = {
-        "--restore", "--vol", "--disk", "--usb", "--aux", "--initrd", "--net", "--save", 0
+        "--restore", "--vol", "--disk", "--usb", "--aux", "--initrd", "--net", "--save", "--mac", 0
     };
     /* in retrospect this was a bad idea, but we have to find the config file
        first since we want the options to override the contents of the config
