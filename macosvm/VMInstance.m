@@ -589,6 +589,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     if (@available(macOS 12, *)) {
         if (shares) {
             NSMutableArray *shDevs = [[NSMutableArray alloc] init];
+            NSMutableArray *automountShares = [[NSMutableArray alloc] init];
             for (NSDictionary *d in shares) {
                 id tmp;
                 NSString *path = d[@"path"];
@@ -610,15 +611,15 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                         NSLog(@"WARNING: you macOS does NOT support automounts, setting the share name to 'automount', you have to use 'mount_virtiofs automount <directory>' in the guest OS\n");
                         shareTag = @"automount";
                         automount = NO;
+                    } else {
+                        [automountShares addObject:d];
+                        continue;
                     }
                 } else if (volume)
                     shareTag = volume;
                 
                 VZVirtioFileSystemDeviceConfiguration *shareCfg = [[VZVirtioFileSystemDeviceConfiguration alloc] initWithTag: shareTag];
-                if (automount)
-                    NSLog(@" + automount share (in /Volumes/My Shared Files)\n");
-                else
-                    NSLog(@" + share, use mount_virtiofs '%@' <mountpoint> in guest OS\n", shareTag);
+                NSLog(@" + share, use mount_virtiofs '%@' <mountpoint> in guest OS\n", shareTag);
                 if (path)
                     url = [NSURL fileURLWithPath:path];
                 if ((tmp = d[@"url"]))
@@ -638,6 +639,46 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 }
                 [shDevs addObject: shareCfg];
             }
+#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
+            if (@available(macOS 13, *)) {
+                if ([automountShares count] > 0) {
+                    NSMutableDictionary *dirs = [[NSMutableDictionary alloc] init];
+                    NSString *shareTag = VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag;
+                    VZVirtioFileSystemDeviceConfiguration *shareCfg = [[VZVirtioFileSystemDeviceConfiguration alloc] initWithTag: shareTag];
+                    for (NSDictionary *d in automountShares) {
+                        id tmp;
+                        NSString *path = d[@"path"];
+                        NSArray *paths = d[@"paths"];
+                        NSURL *url = nil;
+                        BOOL ro = (d[@"readOnly"] && [d[@"readOnly"] boolValue]) ? YES : NO;
+                        
+                        NSLog(@" + automount share (in /Volumes/My Shared Files)\n");
+                        
+                        if (path)
+                            url = [NSURL fileURLWithPath:path];
+                        if ((tmp = d[@"url"]))
+                            url = [NSURL URLWithString:tmp];
+                        if (path) {
+                            VZSharedDirectory *directory = [[VZSharedDirectory alloc] initWithURL: url readOnly: ro];
+                            NSLog(@"   sharing single %@ (%@)\n", url, ro ? @"read-only" : @"read-write");
+                            [dirs setObject: directory forKey:[path lastPathComponent]];
+                        } else if (paths) {
+                            for (NSString *path in paths) {
+                                VZSharedDirectory *directory = [[VZSharedDirectory alloc] initWithURL: [NSURL fileURLWithPath: path] readOnly: ro];
+                                NSLog(@"   sharing multi %@ (%@)\n", url, ro ? @"read-only" : @"read-write");
+                                [dirs setObject: directory forKey:[path lastPathComponent]];
+                            }
+                            
+                        }
+                        
+                    }
+                    shareCfg.share = [[VZMultipleDirectoryShare alloc] initWithDirectories: dirs];
+                    [shDevs addObject: shareCfg];
+                }
+            }
+#endif
+
+            
             self.directorySharingDevices = shDevs;
         }
     } else {
