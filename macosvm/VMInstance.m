@@ -327,15 +327,15 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
         VZMacOSRestoreImage *img = self.restoreImage;
         VZMacOSConfigurationRequirements *req = [img mostFeaturefulSupportedConfiguration];
         hardwareModelData = req.hardwareModel.dataRepresentation;
-
+        
         NSLog(@"configure with restore, minimum requirements: %d CPUs, %lu RAM",
               (int)req.minimumSupportedCPUCount, (unsigned long)req.minimumSupportedMemorySize);
-
+        
         if (!cpus)
-          cpus = (int) req.minimumSupportedCPUCount;
+            cpus = (int) req.minimumSupportedCPUCount;
         if (!ram)
-          ram = (unsigned long)req.minimumSupportedMemorySize;
-
+            ram = (unsigned long)req.minimumSupportedMemorySize;
+        
         if (req.minimumSupportedCPUCount > cpus)
             @throw [NSException exceptionWithName:@"VMConfig" reason:[NSString stringWithFormat:@"Image requires %d CPUs, but only %d configured", (int)req.minimumSupportedCPUCount, cpus] userInfo:nil];
         if (req.minimumSupportedMemorySize > ram)
@@ -344,39 +344,39 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 #else
     NSLog(@"%@ - configure for running, OS: %@", self, os);
 #endif
-
+    
     if (!cpus)
         @throw [NSException exceptionWithName:@"VMConfigCPU" reason:@"Number of CPUs not specified" userInfo:nil];
     if (!ram)
         @throw [NSException exceptionWithName:@"VMConfigRAM" reason:@"RAM size not specified" userInfo:nil];
-
+    
 #if MACOS_GUEST
     VZMacPlatformConfiguration *macPlatform = nil;
 #endif
-
+    
     if ([os isEqualToString:@"macos"]) {
 #if MACOS_GUEST
         self.bootLoader = [[VZMacOSBootLoader alloc] init];
         macPlatform = [[VZMacPlatformConfiguration alloc] init];
 #else
-	@throw [NSException exceptionWithName:@"VMConfig" reason:@"This Mac does not support macOS as guest system" userInfo:nil];
+        @throw [NSException exceptionWithName:@"VMConfig" reason:@"This Mac does not support macOS as guest system" userInfo:nil];
 #endif
     } else if ([os isEqualToString:@"linux"]) {
         NSURL *initrd = nil, *kernel = nil;
         NSString *params = nil;
         /* look for initrd */
         if (storage) for (NSDictionary *d in storage) {
-                id tmp;
-                NSString *path = d[@"file"];
-                NSURL *url = nil;
-                if ((tmp = d[@"url"])) url = [NSURL URLWithString:tmp];
-                if ((tmp = d[@"type"]) && (url || path) && [tmp isEqualToString:@"initrd"]) {
-                    if (initrd)
-                        fprintf(stderr, "WARNING: initrd specified more than once, using the first instance\n");
-                    else
-                        initrd = url ? url : [NSURL fileURLWithPath:path];
-                }
+            id tmp;
+            NSString *path = d[@"file"];
+            NSURL *url = nil;
+            if ((tmp = d[@"url"])) url = [NSURL URLWithString:tmp];
+            if ((tmp = d[@"type"]) && (url || path) && [tmp isEqualToString:@"initrd"]) {
+                if (initrd)
+                    fprintf(stderr, "WARNING: initrd specified more than once, using the first instance\n");
+                else
+                    initrd = url ? url : [NSURL fileURLWithPath:path];
             }
+        }
         if (bootInfo) {
             NSString *kpath = bootInfo[@"kernel"];
             if (kpath)
@@ -400,192 +400,192 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
         NSLog(@"ERROR: unsupported os specification '%@', can only handle 'macos' and 'linux'.", os);
         @throw [NSException exceptionWithName:@"VMConfig" reason:@"Unsupported os specification" userInfo:nil];
     }
-
+    
     if (use_serial) {
-	NSFileHandle *readHandle = nil, *writeHandle = nil;
-	if (pty) {
-	    int masterfd, slavefd;
-	    char *slavedevice;
-	    masterfd = posix_openpt(O_RDWR|O_NOCTTY);
-
-	    if (masterfd == -1
-		|| grantpt (masterfd) == -1
-		|| unlockpt (masterfd) == -1
-		|| (slavedevice = ptsname (masterfd)) == NULL) {
-		perror("ERROR: cannot allocate pty");
-		@throw [NSException exceptionWithName:@"PTYSetup" reason:@"Cannot allocate PTY for serial console" userInfo:nil];
-	    }
-	    /* FIXME: this is a bad hack - the VZ framework fails to spawn the VM if the tty is not connected. */
-	    printf("PTY allocated for serial link: %s\nPress <enter> here on stdin once connected to the tty to proceed.\n", slavedevice);
-	    static char tmp1[16];
-	    fgets(tmp1, sizeof(tmp1), stdin);
-	    writeHandle = readHandle = [[NSFileHandle alloc] initWithFileDescriptor: masterfd];
-	    //writeHandle = [[NSFileHandle alloc] initWithFileDescriptor: dup(masterfd)];
-	    ptyPath = [[NSString alloc] initWithUTF8String: slavedevice];
-	} else {
-	    readHandle = [NSFileHandle fileHandleWithStandardInput];
-	    writeHandle = [NSFileHandle fileHandleWithStandardOutput];
-	}
-	VZVirtioConsoleDeviceSerialPortConfiguration *serial = [[VZVirtioConsoleDeviceSerialPortConfiguration alloc] init];
-	VZFileHandleSerialPortAttachment *sata = [[VZFileHandleSerialPortAttachment alloc]
-						     initWithFileHandleForReading: readHandle
-							     fileHandleForWriting: writeHandle];
-	serial.attachment = sata;
-	self.serialPorts = @[ serial ];
+        NSFileHandle *readHandle = nil, *writeHandle = nil;
+        if (pty) {
+            int masterfd, slavefd;
+            char *slavedevice;
+            masterfd = posix_openpt(O_RDWR|O_NOCTTY);
+            
+            if (masterfd == -1
+                || grantpt (masterfd) == -1
+                || unlockpt (masterfd) == -1
+                || (slavedevice = ptsname (masterfd)) == NULL) {
+                perror("ERROR: cannot allocate pty");
+                @throw [NSException exceptionWithName:@"PTYSetup" reason:@"Cannot allocate PTY for serial console" userInfo:nil];
+            }
+            /* FIXME: this is a bad hack - the VZ framework fails to spawn the VM if the tty is not connected. */
+            printf("PTY allocated for serial link: %s\nPress <enter> here on stdin once connected to the tty to proceed.\n", slavedevice);
+            static char tmp1[16];
+            fgets(tmp1, sizeof(tmp1), stdin);
+            writeHandle = readHandle = [[NSFileHandle alloc] initWithFileDescriptor: masterfd];
+            //writeHandle = [[NSFileHandle alloc] initWithFileDescriptor: dup(masterfd)];
+            ptyPath = [[NSString alloc] initWithUTF8String: slavedevice];
+        } else {
+            readHandle = [NSFileHandle fileHandleWithStandardInput];
+            writeHandle = [NSFileHandle fileHandleWithStandardOutput];
+        }
+        VZVirtioConsoleDeviceSerialPortConfiguration *serial = [[VZVirtioConsoleDeviceSerialPortConfiguration alloc] init];
+        VZFileHandleSerialPortAttachment *sata = [[VZFileHandleSerialPortAttachment alloc]
+                                                  initWithFileHandleForReading: readHandle
+                                                  fileHandleForWriting: writeHandle];
+        serial.attachment = sata;
+        self.serialPorts = @[ serial ];
     }
-
+    
     self.entropyDevices = @[[[VZVirtioEntropyDeviceConfiguration alloc] init]];
-
+    
     NSMutableArray *netList = [NSMutableArray arrayWithCapacity: networks ? [networks count] : 1];
     int net_count = 0;
     if (networks) for (NSDictionary *d in networks) {
-            VZVirtioNetworkDeviceConfiguration *networkDevice = [[VZVirtioNetworkDeviceConfiguration alloc] init];
-            NSString *type = d[@"type"];
-            net_count++;
-	    /* default to NAT */
-            if (!type || [type isEqualToString:@"nat"]) {
-                NSLog(@" + NAT network");
-                networkDevice.attachment = [[VZNATNetworkDeviceAttachment alloc] init];
-            } else if (type && [type hasPrefix:@"br"]) {
-                NSString *iface = d[@"interface"];
-                VZBridgedNetworkInterface *brInterface = nil;
-                NSArray *hostInterfaces = VZBridgedNetworkInterface.networkInterfaces;
-                if ([hostInterfaces count] < 1)
-                    @throw [NSException exceptionWithName:@"VMConfigNet" reason: @"No host interfaces are available for bridging" userInfo:nil];
-                if (iface) {
-                    for (VZBridgedNetworkInterface *hostIface in hostInterfaces)
-                        if ([hostIface.identifier isEqualToString: iface]) {
-                            brInterface = hostIface;
-                            break;
-                        }
-                } else {
-                    brInterface = (VZBridgedNetworkInterface*) hostInterfaces[0];
-                    fprintf(stderr, "%s", [[NSString stringWithFormat: @"WARNING: no network interface specified for bridging, using first: %@ (%@)\n",
-                                              brInterface.identifier, brInterface.localizedDisplayName] UTF8String]);
-                }
-                if (!brInterface) {
-                    fprintf(stderr, "%s", [[NSString stringWithFormat:@"ERROR: Network interface '%@' not found. Available interfaces for bridging:\n%@",
-                                              iface, hostInterfaces] UTF8String]);
-                    @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                            [NSString stringWithFormat:@"Network interface '%@' not found or not available", iface]
-                                                 userInfo:nil];
-                }
-                NSLog(@" + Bridged network to %@", brInterface);
-                networkDevice.attachment = [[VZBridgedNetworkDeviceAttachment alloc] initWithInterface:brInterface];
-                [netList addObject: networkDevice];
-            } else if (type && [type isEqualToString:@"unix"]) {
-                NSString *path = d[@"path"];
-                int mtu = 1500;
-                struct sockaddr_un caddr = {
-                    .sun_family = AF_UNIX,
-                };
-                struct sockaddr_un addr = {
-                    .sun_family = AF_UNIX,
-                    .sun_path = "/tmp/slirp"
-                };
-                NSFileHandle *fh;
-                int sndbuflen = 2 * 1024 * 1024; /* for SO_RCVBUF/SO_SNDBUF - see below */
-                int rcvbuflen = 6 * 1024 * 1024;
-                int fd;
-
-                id smtu = d[@"mtu"];
-                if (smtu) {
-                    if ([smtu isKindOfClass:[NSString class]])
-                        mtu = (int) ((NSString*)smtu).integerValue;
-                    else if ([smtu isKindOfClass:[NSNumber class]])
-                        mtu = (int) ((NSNumber*)smtu).integerValue;
-                    if (mtu < 1500)
-                        @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                                [NSString stringWithFormat:@"MTU value %d is invalid, it must be at least 1500", mtu]
-                                                     userInfo:nil];
-                }
-
-                NSLog(@" + UNIX domain socket network");
-
-		if (path)
-                    strncpy(addr.sun_path, [path UTF8String], sizeof(addr.sun_path) - 1);
-
-                const char *tsd = getenv("TMPSOCKDIR");
-                NSString *tmpDir = (tsd && *tsd) ? [NSString stringWithUTF8String: tsd] : NSTemporaryDirectory();
-                NSString *tmpSock = [NSString stringWithFormat: @"%@/macosvm.net.%d.%d", tmpDir, (int) getpid(), net_count];
-                if ([tmpSock lengthOfBytesUsingEncoding:NSUTF8StringEncoding] >= sizeof(caddr.sun_path))
-                    @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                            [NSString stringWithFormat:@"Temporary socket path '%@' is too long, consider setting TMPSOCKDIR to shorter path.", tmpSock]
-                                                 userInfo:nil];
-                strcpy(caddr.sun_path, [tmpSock UTF8String]);
-                { /* for security reasons we don't allow the target to be anything other
-                     that a previously created socket (especially not a link) */
-                    struct stat st;
-                    if (lstat(caddr.sun_path, &st) == 0) { /* target exists */
-                        if ((st.st_mode & S_IFMT) != S_IFSOCK)
-                            @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                                    [NSString stringWithFormat:@"Temporary socket path '%@' already exists and is not a socket.", tmpSock]
-                                                         userInfo:nil];
-                        /* ok, unlink it */
-                        if (unlink(caddr.sun_path))
-                            @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                                    [NSString stringWithFormat:@"Cannot remove stale temporary socket '%@': %s", tmpSock, strerror(errno)]
-                                                         userInfo:nil];
-                    } /* if it doesn't exist, we're all good */
-                }
-                fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-                /* bind is mandatory */
-                if (bind(fd, (struct sockaddr *)&caddr, sizeof(caddr)))
-                    @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                            [NSString stringWithFormat:@"Could not bind UNIX socket to '%s': %s", caddr.sun_path, strerror(errno)]
-                                                 userInfo:nil];
-                NSLog(@"   Bound to '%s', connecting to '%s'", caddr.sun_path, addr.sun_path);
-                add_unlink_on_exit(caddr.sun_path);
-                /* connect is optional for DGRAM, but fixes the peer so we force the desired target */
-                if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)))
-                    @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                            [NSString stringWithFormat:@"Could not connect to UNIX socket '%s': %s", addr.sun_path, strerror(errno)]
-                                                 userInfo:nil];
-
-                /* according to VZFileHandleNetworkDeviceAttachment docs SO_RCVBUF has to be
-                   at least double of SO_SNDBUF, ideally 4x. Modern macOS have kern.ipc.maxsockbuf
-                   of 8Mb, so we try 2Mb + 6Mb first and fall back by halving */
-                while (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuflen, sizeof(sndbuflen)) ||
-                       setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuflen, sizeof(rcvbuflen))) {
-                    sndbuflen /= 2;
-                    rcvbuflen /= 2;
-                    if (rcvbuflen < 128 * 1024) {
-                        @throw [NSException exceptionWithName:@"VMConfigNet" reason:
-                                                [NSString stringWithFormat:@"Could not set socket buffer sizes: %s", strerror(errno)]
-                                                     userInfo:nil];
+        VZVirtioNetworkDeviceConfiguration *networkDevice = [[VZVirtioNetworkDeviceConfiguration alloc] init];
+        NSString *type = d[@"type"];
+        net_count++;
+        /* default to NAT */
+        if (!type || [type isEqualToString:@"nat"]) {
+            NSLog(@" + NAT network");
+            networkDevice.attachment = [[VZNATNetworkDeviceAttachment alloc] init];
+        } else if (type && [type hasPrefix:@"br"]) {
+            NSString *iface = d[@"interface"];
+            VZBridgedNetworkInterface *brInterface = nil;
+            NSArray *hostInterfaces = VZBridgedNetworkInterface.networkInterfaces;
+            if ([hostInterfaces count] < 1)
+                @throw [NSException exceptionWithName:@"VMConfigNet" reason: @"No host interfaces are available for bridging" userInfo:nil];
+            if (iface) {
+                for (VZBridgedNetworkInterface *hostIface in hostInterfaces)
+                    if ([hostIface.identifier isEqualToString: iface]) {
+                        brInterface = hostIface;
+                        break;
                     }
-                }
-
-                fh = [[NSFileHandle alloc] initWithFileDescriptor:fd];
-                VZFileHandleNetworkDeviceAttachment *fhda = [[VZFileHandleNetworkDeviceAttachment alloc] initWithFileHandle:fh];
-                if (mtu > 1500) {
-#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
-		    if (@available(macOS 13, *))
-                        fhda.maximumTransmissionUnit = mtu;
-                    else
-                        fprintf(stderr, "WARNING: your macOS does not support MTU changes, using default 1500\n");
-#else
-                    fprintf(stderr, "WARNING: This build does not support MTU changes, using default 1500\n");
-#endif
-                }
-                networkDevice.attachment = fhda;
+            } else {
+                brInterface = (VZBridgedNetworkInterface*) hostInterfaces[0];
+                fprintf(stderr, "%s", [[NSString stringWithFormat: @"WARNING: no network interface specified for bridging, using first: %@ (%@)\n",
+                                        brInterface.identifier, brInterface.localizedDisplayName] UTF8String]);
             }
-	    NSString *macAddr = d[@"mac"];
-	    if (macAddr) {
-		VZMACAddress *addr = [[VZMACAddress alloc] initWithString: macAddr];
-		if (!addr) {
-		    @throw [NSException exceptionWithName:@"VMConfigNetworkError"
-						   reason:[NSString stringWithFormat:@"Invalid MAC address specification: '%@'", macAddr] userInfo:nil];
-		}
-		networkDevice.MACAddress = addr;
-	    } else {
-		networkDevice.MACAddress = [VZMACAddress randomLocallyAdministeredAddress];
-	    }
-	    NSLog(@" + network: ether %@\n", [networkDevice.MACAddress string]);
+            if (!brInterface) {
+                fprintf(stderr, "%s", [[NSString stringWithFormat:@"ERROR: Network interface '%@' not found. Available interfaces for bridging:\n%@",
+                                        iface, hostInterfaces] UTF8String]);
+                @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                        [NSString stringWithFormat:@"Network interface '%@' not found or not available", iface]
+                                             userInfo:nil];
+            }
+            NSLog(@" + Bridged network to %@", brInterface);
+            networkDevice.attachment = [[VZBridgedNetworkDeviceAttachment alloc] initWithInterface:brInterface];
             [netList addObject: networkDevice];
+        } else if (type && [type isEqualToString:@"unix"]) {
+            NSString *path = d[@"path"];
+            int mtu = 1500;
+            struct sockaddr_un caddr = {
+                .sun_family = AF_UNIX,
+            };
+            struct sockaddr_un addr = {
+                .sun_family = AF_UNIX,
+                .sun_path = "/tmp/slirp"
+            };
+            NSFileHandle *fh;
+            int sndbuflen = 2 * 1024 * 1024; /* for SO_RCVBUF/SO_SNDBUF - see below */
+            int rcvbuflen = 6 * 1024 * 1024;
+            int fd;
+            
+            id smtu = d[@"mtu"];
+            if (smtu) {
+                if ([smtu isKindOfClass:[NSString class]])
+                    mtu = (int) ((NSString*)smtu).integerValue;
+                else if ([smtu isKindOfClass:[NSNumber class]])
+                    mtu = (int) ((NSNumber*)smtu).integerValue;
+                if (mtu < 1500)
+                    @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                            [NSString stringWithFormat:@"MTU value %d is invalid, it must be at least 1500", mtu]
+                                                 userInfo:nil];
+            }
+            
+            NSLog(@" + UNIX domain socket network");
+            
+            if (path)
+                strncpy(addr.sun_path, [path UTF8String], sizeof(addr.sun_path) - 1);
+            
+            const char *tsd = getenv("TMPSOCKDIR");
+            NSString *tmpDir = (tsd && *tsd) ? [NSString stringWithUTF8String: tsd] : NSTemporaryDirectory();
+            NSString *tmpSock = [NSString stringWithFormat: @"%@/macosvm.net.%d.%d", tmpDir, (int) getpid(), net_count];
+            if ([tmpSock lengthOfBytesUsingEncoding:NSUTF8StringEncoding] >= sizeof(caddr.sun_path))
+                @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                        [NSString stringWithFormat:@"Temporary socket path '%@' is too long, consider setting TMPSOCKDIR to shorter path.", tmpSock]
+                                             userInfo:nil];
+            strcpy(caddr.sun_path, [tmpSock UTF8String]);
+            { /* for security reasons we don't allow the target to be anything other
+               that a previously created socket (especially not a link) */
+                struct stat st;
+                if (lstat(caddr.sun_path, &st) == 0) { /* target exists */
+                    if ((st.st_mode & S_IFMT) != S_IFSOCK)
+                        @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                                [NSString stringWithFormat:@"Temporary socket path '%@' already exists and is not a socket.", tmpSock]
+                                                     userInfo:nil];
+                    /* ok, unlink it */
+                    if (unlink(caddr.sun_path))
+                        @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                                [NSString stringWithFormat:@"Cannot remove stale temporary socket '%@': %s", tmpSock, strerror(errno)]
+                                                     userInfo:nil];
+                } /* if it doesn't exist, we're all good */
+            }
+            fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+            /* bind is mandatory */
+            if (bind(fd, (struct sockaddr *)&caddr, sizeof(caddr)))
+                @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                        [NSString stringWithFormat:@"Could not bind UNIX socket to '%s': %s", caddr.sun_path, strerror(errno)]
+                                             userInfo:nil];
+            NSLog(@"   Bound to '%s', connecting to '%s'", caddr.sun_path, addr.sun_path);
+            add_unlink_on_exit(caddr.sun_path);
+            /* connect is optional for DGRAM, but fixes the peer so we force the desired target */
+            if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)))
+                @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                        [NSString stringWithFormat:@"Could not connect to UNIX socket '%s': %s", addr.sun_path, strerror(errno)]
+                                             userInfo:nil];
+            
+            /* according to VZFileHandleNetworkDeviceAttachment docs SO_RCVBUF has to be
+             at least double of SO_SNDBUF, ideally 4x. Modern macOS have kern.ipc.maxsockbuf
+             of 8Mb, so we try 2Mb + 6Mb first and fall back by halving */
+            while (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuflen, sizeof(sndbuflen)) ||
+                   setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuflen, sizeof(rcvbuflen))) {
+                sndbuflen /= 2;
+                rcvbuflen /= 2;
+                if (rcvbuflen < 128 * 1024) {
+                    @throw [NSException exceptionWithName:@"VMConfigNet" reason:
+                            [NSString stringWithFormat:@"Could not set socket buffer sizes: %s", strerror(errno)]
+                                                 userInfo:nil];
+                }
+            }
+            
+            fh = [[NSFileHandle alloc] initWithFileDescriptor:fd];
+            VZFileHandleNetworkDeviceAttachment *fhda = [[VZFileHandleNetworkDeviceAttachment alloc] initWithFileHandle:fh];
+            if (mtu > 1500) {
+#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
+                if (@available(macOS 13, *))
+                    fhda.maximumTransmissionUnit = mtu;
+                else
+                    fprintf(stderr, "WARNING: your macOS does not support MTU changes, using default 1500\n");
+#else
+                fprintf(stderr, "WARNING: This build does not support MTU changes, using default 1500\n");
+#endif
+            }
+            networkDevice.attachment = fhda;
+        }
+        NSString *macAddr = d[@"mac"];
+        if (macAddr) {
+            VZMACAddress *addr = [[VZMACAddress alloc] initWithString: macAddr];
+            if (!addr) {
+                @throw [NSException exceptionWithName:@"VMConfigNetworkError"
+                                               reason:[NSString stringWithFormat:@"Invalid MAC address specification: '%@'", macAddr] userInfo:nil];
+            }
+            networkDevice.MACAddress = addr;
+        } else {
+            networkDevice.MACAddress = [VZMACAddress randomLocallyAdministeredAddress];
+        }
+        NSLog(@" + network: ether %@\n", [networkDevice.MACAddress string]);
+        [netList addObject: networkDevice];
     }
     self.networkDevices = netList;
-
+    
     if (@available(macOS 12, *)) {
         if (shares) {
             NSMutableArray *shDevs = [[NSMutableArray alloc] init];
@@ -599,21 +599,21 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 BOOL automount = (d[@"automount"] && [d[@"automount"] boolValue]) ? YES : NO;
                 NSString *shareTag = @"macosvm";
                 if (automount) {
-		    BOOL canAutomount = NO;
+                    BOOL canAutomount = NO;
 #if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
-		    if (@available(macOS 13, *)) {
-			shareTag = VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag;
-			canAutomount = YES;
-		    }
+                    if (@available(macOS 13, *)) {
+                        shareTag = VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag;
+                        canAutomount = YES;
+                    }
 #endif
-		    if (!canAutomount) {
+                    if (!canAutomount) {
                         NSLog(@"WARNING: you macOS does NOT support automounts, setting the share name to 'automount', you have to use 'mount_virtiofs automount <directory>' in the guest OS\n");
                         shareTag = @"automount";
                         automount = NO;
                     }
                 } else if (volume)
                     shareTag = volume;
-
+                
                 VZVirtioFileSystemDeviceConfiguration *shareCfg = [[VZVirtioFileSystemDeviceConfiguration alloc] initWithTag: shareTag];
                 if (automount)
                     NSLog(@" + automount share (in /Volumes/My Shared Files)\n");
@@ -644,7 +644,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
         if (shares)
             @throw [NSException exceptionWithName:@"VMConfigSharesError" reason:@"Your macOS does not support directory sharing, you need macOS 12 or higher." userInfo:nil];
     }
-
+    
 #ifdef MACOS_GUEST
     VZMacGraphicsDeviceConfiguration *graphics = [[VZMacGraphicsDeviceConfiguration alloc] init];
     NSMutableArray *disp = [NSMutableArray arrayWithCapacity:displays ? [displays count] : 1];
@@ -661,9 +661,9 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
     graphics.displays = disp;
     self.graphicsDevices = @[graphics];
 #endif
-
+    
     self.keyboards = @[[[VZUSBKeyboardConfiguration alloc] init]];
-
+    
 #if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000 && defined(MACOS_GUEST))
     if (@available(macOS 13, *)) {
         if (macPlatform) self.pointingDevices = @[
@@ -673,7 +673,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 #endif
     if (!self.pointingDevices || [self.pointingDevices count] == 0)
         self.pointingDevices = @[[[VZUSBScreenCoordinatePointingDeviceConfiguration alloc] init]];
-
+    
 #if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
     if (@available(macOS 13, *)) if (spice) { /* SPICE-based clipboard sharing */
         VZVirtioConsoleDeviceConfiguration *consoleDevice = [[VZVirtioConsoleDeviceConfiguration alloc] init];
@@ -686,16 +686,16 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
         self.consoleDevices = @[ consoleDevice ];
     }
 #endif
-
+    
 #ifdef MACOS_GUEST
     VZMacHardwareModel *hwm = hardwareModelData ? [[VZMacHardwareModel alloc] initWithDataRepresentation:hardwareModelData] : nil;
-
+    
     if (macPlatform && !hardwareModelData) {
         fprintf(stderr, "WARNING: no hardware information found, using arm64 macOS 12.0.0 specs\n");
         hardwareModelData = [[NSData alloc] initWithBase64EncodedString: @"YnBsaXN0MDDTAQIDBAUGXxAZRGF0YVJlcHJlc2VudGF0aW9uVmVyc2lvbl8QD1BsYXRmb3JtVmVyc2lvbl8QEk1pbmltdW1TdXBwb3J0ZWRPUxQAAAAAAAAAAAAAAAAAAAABEAKjBwgIEAwQAAgPKz1SY2VpawAAAAAAAAEBAAAAAAAAAAkAAAAAAAAAAAAAAAAAAABt" options:0];
     }
 #endif
-
+    
     NSMutableArray *std = [NSMutableArray arrayWithCapacity:storage ? [storage count] : 1];
     if (storage) for (NSDictionary *d in storage) {
         id tmp;
@@ -734,8 +734,8 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                     if (useExisting && path && !machineIdentifierData)
                         machineIdentifierData = [self inferMachineIdFromAuxFile: path];
                     VZMacAuxiliaryStorage *aux = useExisting ?
-                        [[VZMacAuxiliaryStorage alloc] initWithContentsOfURL: imageURL] :
-                        [[VZMacAuxiliaryStorage alloc] initCreatingStorageAtURL: imageURL hardwareModel:hwm options:VZMacAuxiliaryStorageInitializationOptionAllowOverwrite error:&err];
+                    [[VZMacAuxiliaryStorage alloc] initWithContentsOfURL: imageURL] :
+                    [[VZMacAuxiliaryStorage alloc] initCreatingStorageAtURL: imageURL hardwareModel:hwm options:VZMacAuxiliaryStorageInitializationOptionAllowOverwrite error:&err];
                     if (err)
                         @throw [NSException exceptionWithName:@"VMConfigAuxStorageError" reason:[err description] userInfo:nil];
                     macPlatform.auxiliaryStorage = aux;
@@ -746,40 +746,40 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
         }
     }
     self.storageDevices = std;
-
+    
     if (audio) {
-      NSLog(@" + audio");
-      VZVirtioSoundDeviceConfiguration *soundDevice = [[VZVirtioSoundDeviceConfiguration alloc] init];
-      VZVirtioSoundDeviceOutputStreamConfiguration *outputStream = [[VZVirtioSoundDeviceOutputStreamConfiguration alloc] init];
-      outputStream.sink = [[VZHostAudioOutputStreamSink alloc] init];
-      VZVirtioSoundDeviceInputStreamConfiguration *inputStream = [[VZVirtioSoundDeviceInputStreamConfiguration alloc] init];
-      inputStream.source = [[VZHostAudioInputStreamSource alloc] init];
-      soundDevice.streams = @[outputStream, inputStream];
-      self.audioDevices = @[soundDevice];
+        NSLog(@" + audio");
+        VZVirtioSoundDeviceConfiguration *soundDevice = [[VZVirtioSoundDeviceConfiguration alloc] init];
+        VZVirtioSoundDeviceOutputStreamConfiguration *outputStream = [[VZVirtioSoundDeviceOutputStreamConfiguration alloc] init];
+        outputStream.sink = [[VZHostAudioOutputStreamSink alloc] init];
+        VZVirtioSoundDeviceInputStreamConfiguration *inputStream = [[VZVirtioSoundDeviceInputStreamConfiguration alloc] init];
+        inputStream.source = [[VZHostAudioInputStreamSource alloc] init];
+        soundDevice.streams = @[outputStream, inputStream];
+        self.audioDevices = @[soundDevice];
     }
-
+    
     if ([os isEqualToString:@"macos"]) {
 #ifdef MACOS_GUEST
         if (hwm) macPlatform.hardwareModel = hwm;
-
+        
         /* either load existing or create new one */
         VZMacMachineIdentifier *mid = [VZMacMachineIdentifier alloc];
         mid = (machineIdentifierData) ? [mid initWithDataRepresentation:machineIdentifierData] : [mid init];
         macPlatform.machineIdentifier = mid;
         if (!machineIdentifierData)
             machineIdentifierData = mid.dataRepresentation;
-
+        
         self.platform = macPlatform;
 #endif
     } else { /* generic platform */
         self.platform = [[VZGenericPlatformConfiguration alloc] init];
     }
-
+    
     NSLog(@" + %d CPUs", (int) cpus);
     self.CPUCount = cpus;
     NSLog(@" + %lu RAM", ram);
     self.memorySize = ram;
-
+    
     return self;
 }
 
