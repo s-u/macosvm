@@ -4,6 +4,11 @@
 ### Download
 See [releases](https://github.com/s-u/macosvm/releases) for downloads of released binaries (arm64 macOS 12 and higher only). See [NEWS](https://github.com/s-u/macosvm/blob/master/NEWS.md) for latest changes.
 
+The downloaded binary can be moved to `/opt/homebrew/bin` if your system has homebrew installed. You may need to bypass the notarization requirement on macOS by running command below in terminal if `macosvm` command is blocked by macOS in terminal. Please note this step is not necessary if you build this project yourself rather than using the released binaries.
+```
+xattr -r -d com.apple.quarantine /opt/homebrew/bin/macosvm
+```
+
 ### Build
 The project can be built either with `xcodebuild` or `make`. The former requires Xcode installation while the latter only requires command line tools (see `xcode-select --install`).
 
