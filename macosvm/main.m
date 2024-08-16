@@ -67,7 +67,7 @@ attachmentWasDisconnectedWithError:(NSError *)error {
     NSLog(@"VM %@ networkDevice:%@ disconnected:%@", virtualMachine, networkDevice, error);
 }
 
-- (void)applicationDidFinishLaunching:(NSNotification *)notification {
+- (void) startApp {
     [self->spec addDefaults];
 #ifdef MACOS_GUEST
     if (_restorePath) {
@@ -84,6 +84,15 @@ attachmentWasDisconnectedWithError:(NSError *)error {
     } else
 #endif
         [self createVM: nil];
+}
+
+- (void)applicationWillFinishLaunching:(NSNotification *)notification {
+    if (!self.useGUI) [self startApp];
+}
+
+/* this is never called without a session, so we use WillFinish for those instead (#33) */
+- (void)applicationDidFinishLaunching:(NSNotification *)notification {
+    if (self.useGUI) [self startApp];
 }
 
 - (void) updateProgess: (id) object {
