@@ -4,6 +4,10 @@
 ### Download
 See [releases](https://github.com/s-u/macosvm/releases) for downloads of released binaries (arm64 macOS 12 and higher only). See [NEWS](https://github.com/s-u/macosvm/blob/master/NEWS.md) for latest changes.
 
+Please use `curl` for download and not browsers since the latter will quarantine the downloaded file, e.g.:
+
+    curl -L https://github.com/s-u/macosvm/releases/download/0.2-1/macosvm-0.2-1-arm64-darwin21.tar.gz | tar vxz
+
 ### Build
 The project can be built either with `xcodebuild` or `make`. The former requires Xcode installation while the latter only requires command line tools (see `xcode-select --install`).
 
