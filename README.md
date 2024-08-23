@@ -82,4 +82,4 @@ The `unix` target is useful in combination with a [slirp proxy](https://github.c
 
 ### File Sharing
 
-Since macOS 13 (Ventura) VirtIOFS is supported both in the guest and host macOS. A typical use is something like `--vol /Users/myself/shared:automount` which will make the contents of the `/Users/myself/shared` directory on the host avaiable as `/Volumes/My Shared Files` in the guest macOS. If `automount` is not specified, then the guest OS has to mount the virtiofs share (via `mount_virtiofs` or similar) by specifying its name (tag) which defaults to `macosvm`, but can be set, e.g., by appending `:name=mysharename`.
+Since macOS 13 (Ventura) VirtIOFS is supported both in the guest and host macOS. A typical use is something like `--vol /Users/myself/shared,automount` which will make the contents of the `/Users/myself/shared` directory on the host avaiable as `/Volumes/My Shared Files` in the guest macOS. If `automount` is not specified, then the guest OS has to mount the virtiofs share (via `mount_virtiofs` or similar) by specifying its name (tag) which defaults to `macosvm`, but can be set, e.g., by appending `,name=mysharename`.
