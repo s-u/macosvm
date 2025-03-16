@@ -830,7 +830,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
             @throw [NSException exceptionWithName:@"VMStartError" reason:[err description] userInfo:nil];
     };
 
-#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
+#if (TARGET_OS_OSX && defined (__arm64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)
     /* recovery has been introduced in 13.0 */
     if (@available(macOS 13.0, *)) {
         VZMacOSVirtualMachineStartOptions *opts = [[VZMacOSVirtualMachineStartOptions alloc] init];
