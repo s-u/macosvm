@@ -1,5 +1,8 @@
 ## NEWS
 
+### 0.2-2
+* added `--script` argument which allows to specify a script that should be called then the VM is successfully launched. Additional two arguments are added to the provided script string: the `pid` of the `macosvm` process and the MAC address of the first interface (if is exists). The script is executed via `/bin/bash -c` so the actual call for `--script <script>` will be similar to `/bin/bash -c '<script> <pid> <mac>'` and thus respects `PATH` etc.
+
 ### 0.2-1
 * Linux guest would fail with "Number of pointing devices is greater than the maximum number supported" since VZ framework allows the choice of trackpad and USB only for macOS guests (#21, regression from 0.1-4).
 
