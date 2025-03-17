@@ -27,6 +27,7 @@
     pty = NO;
     spice = NO;
     ptyPath = nil;
+    spawnScript = nil;
     return self;
 }
 
@@ -192,6 +193,10 @@
             networks = [ma arrayByAddingObjectsFromArray:[networks subarrayWithRange: NSMakeRange(1, [ma count] - 1)]];
         }
     } else [self addNetwork: @"nat" mac:mac];
+}
+
+- (void) setSpawnScript: (NSString*) script {
+    spawnScript = [script retain];
 }
 
 - (void) addNetwork: (NSString*) type interface: (NSString*) iface {
@@ -828,6 +833,16 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
         NSLog(@"start completed err=%@", err ? err : @"nil");
         if (err)
             @throw [NSException exceptionWithName:@"VMStartError" reason:[err description] userInfo:nil];
+        if (_spec->spawnScript) {
+            NSError *terr = nil;
+            NSArray *netList = _spec.networkDevices;
+            NSString *macAddr = (netList && [netList count] > 0) ? [[((VZNetworkDeviceConfiguration*)[netList objectAtIndex: 0]) MACAddress] string] : @"";
+            NSArray *args = @[ @"-c", [NSString stringWithFormat: @"%@ %lu %@", _spec->spawnScript, (unsigned long) getpid(), macAddr]];
+            [NSTask launchedTaskWithExecutableURL: [NSURL fileURLWithPath:@"/bin/bash" isDirectory:NO]
+                                        arguments: args
+                                            error: &terr
+                               terminationHandler: ^(NSTask *t) { }];
+        }
     };
 
 #if (TARGET_OS_OSX && defined (__arm64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 130000)

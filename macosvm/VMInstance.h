@@ -27,6 +27,7 @@
     int cpus;
     unsigned long ram;
     BOOL audio, use_serial, pty, spice, use_recovery;
+    NSString *spawnScript;
 }
 
 #ifdef MACOS_GUEST
@@ -50,6 +51,7 @@
 - (void) addAutomountDirectoryShare: (NSString*) path readOnly: (BOOL) readOnly;
 - (void) addAutomountDirectoryShares: (NSArray*) paths readOnly: (BOOL) readOnly;
 - (void) setPrimaryMAC: (NSString*) mac;
+- (void) setSpawnScript: (NSString*) mac;
 - (instancetype) configure;
 - (void) cloneAllStorage;
 
