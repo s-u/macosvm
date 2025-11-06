@@ -25,7 +25,7 @@ macosvm --disk disk.img,size=32g --aux aux.img --restore UniversalMac_14.6.1_23G
 macosvm -g vm.json
 ```
 
-A full list of ipsw images for all versions of macOS is availabe [here](https://mrmacintosh.com/apple-silicon-m1-full-macos-restore-ipsw-firmware-files-database/).
+A full list of ipsw images for all versions of macOS is availabe [here](https://mrmacintosh.com/apple-silicon-m1-full-macos-restore-ipsw-firmware-files-database/). Note that the guest macOS version must be equal to or lower than the host version.
 
 After your started the VM it will go through the Apple Setup Assistant - you need the GUI to get through that. Once done, I strongly recommend going to *Sharing* system preferences, setting a unique name and enabling *Remote Login* and *Screen Sharing*. Then you can shut down the VM (using *Shut Down* in the macOS guest). Note that the default is to use NAT networking and your VM will show up on your host's network (details below) so you can use *Finder* to connect to its screen even if you start without the GUI.
 
