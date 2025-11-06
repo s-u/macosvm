@@ -1,12 +1,12 @@
 ## macosvm
-`macosvm` is a command line tool which allows creating and running of virtual machines on macOS 12 (Monterey) and higher using the new Virtualization framework. It has been primarily developed for running macOS guest opearting systems inside virtual machines on M1-based Macs (arm64) with macOS hosts to support CI/CD such as GitHub M1-based runners and our [R](https://www.R-project.org) builds.
+`macosvm` is a command line tool which allows creating and running of virtual machines on macOS 12 (Monterey) and higher using the new Virtualization framework. It has been primarily developed for running macOS guest opearting systems inside virtual machines on M1-based Macs (arm64) with macOS hosts to support CI/CD such as GitHub M1-based runners and our [R](https://www.R-project.org) builds (see [vm-scripts-mini-r](https://github.com/R-macos/vm-scripts-mini-r) for a small example).
 
 ### Download
 See [releases](https://github.com/s-u/macosvm/releases) for downloads of released binaries (arm64 macOS 12 and higher only). See [NEWS](https://github.com/s-u/macosvm/blob/master/NEWS.md) for latest changes.
 
 Please use `curl` for download and not browsers since the latter will quarantine the downloaded file, e.g.:
 
-    curl -L https://github.com/s-u/macosvm/releases/download/0.2-1/macosvm-0.2-1-arm64-darwin21.tar.gz | tar vxz
+    curl -L https://github.com/s-u/macosvm/releases/download/0.2-2/macosvm-0.2-2-darwin21.tar.gz | tar vxz
 
 ### Build
 The project can be built either with `xcodebuild` or `make`. The former requires Xcode installation while the latter only requires command line tools (see `xcode-select --install`).
@@ -16,10 +16,10 @@ The tool requires at least macOS 12 (Monterey) since that is the first system im
 
 ```
 ## Download the desired macOS ipsw image, e.g.:
-curl -LO https://updates.cdn-apple.com/2021FCSFall/fullrestores/002-23780/D3417F21-41BD-4DDF-9135-FA5A129AF6AF/UniversalMac_12.0.1_21A559_Restore.ipsw
+curl -LO https://updates.cdn-apple.com/2024SummerFCS/fullrestores/062-52859/932E0A8F-6644-4759-82DA-F8FA8DEA806A/UniversalMac_14.6.1_23G93_Restore.ipsw
 
-## create a new VM with 32Gb disk image and install macOS 12:
-macosvm --disk disk.img,size=32g --aux aux.img --restore UniversalMac_12.0.1_21A559_Restore.ipsw vm.json
+## create a new VM with 32Gb disk image and install macOS 14:
+macosvm --disk disk.img,size=32g --aux aux.img --restore UniversalMac_14.6.1_23G93_Restore.ipsw vm.json
 
 ## start the created image with GUI window:
 macosvm -g vm.json
@@ -40,6 +40,8 @@ Note the `-c` flag which will make a copy-on-write clone, i.e., the cloned image
 See `macosvm -h` for a minimal help page. Note that this is an experimental expert tool. There is a lot of debugging output, errors include stack traces etc - this is intentional at this point, nothing horrible is happening, but you may need to read more text than you want to on errors.
 
 See [the Wiki](https://github.com/s-u/macosvm/wiki) for more tips and information.
+
+Since version 0.2-2 you can launch scripts when the VM is up - e.g. see [launch.sh](https://github.com/R-macos/vm-scripts-mini-r/blob/master/launch.sh) for a simple example that retrieves the IP address and can be used as a base for automation.
 
 ### Details
 
