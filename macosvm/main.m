@@ -295,6 +295,8 @@ static double parse_size(const char *val) {
 #include <stdio.h>
 #include <sys/stat.h>
 
+static char *pid_file;
+
 /* simple low-level registry of files to unlink on exit */
 #define MAX_UNLINKS 32
 static char *unlink_me[MAX_UNLINKS];
@@ -321,6 +323,8 @@ static void cleanup() {
         }
         i++;
     }
+    if (pid_file)
+	unlink(pid_file);
 }
 
 #include <signal.h>
@@ -371,7 +375,7 @@ int main(int ac, char**av) {
 
     /* options that require an argument so we can skip them */
     const char *multi_options[] = {
-        "--restore", "--vol", "--disk", "--usb", "--aux", "--initrd", "--net", "--save", "--mac", "--script", 0
+        "--restore", "--vol", "--disk", "--usb", "--aux", "--initrd", "--net", "--save", "--mac", "--script", "--pid-file", 0
     };
     /* in retrospect this was a bad idea, but we have to find the config file
        first since we want the options to override the contents of the config
@@ -450,6 +454,14 @@ int main(int ac, char**av) {
             if (!strcmp(av[i], "--init")) {
                 create = YES; continue;
             }
+	    if (!strcmp(av[i], "--pid-file")) {
+		if (++i >= ac) {
+		    fprintf(stderr, "ERROR: %s missing file name", av[i-1]);
+		    return 1;
+		}
+		pid_file = av[i];
+		continue;
+	    }
 	    if (!strcmp(av[i], "--pty")) {
 		spec->use_serial = spec->pty = YES; continue;
 	    }
@@ -573,7 +585,7 @@ int main(int ac, char**av) {
                 }
                 if (@available(macOS 13, *))
                     caps13 = ", vol:automount, net:unix:mtu, usb";
-                printf("macosvm %s\n\nCopyright (C) 2022 Simon Urbanek\nThere is NO warranty.\nLicenses: GPLv2 or GPLv3\n%s%s\n",
+                printf("macosvm %s\n\nCopyright (C) 2022-5 Simon Urbanek\nThere is NO warranty.\nLicenses: GPLv2 or GPLv3\n%s%s\n",
                        version, caps12, caps13);
                 return 0;
             }
@@ -684,8 +696,9 @@ int main(int ac, char**av) {
            [--restore <path>] [--ephemeral] [--recovery]\n\
            [--{disk|usb} <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
            [--vol <path>[,ro][,{name=<name>|automount}]]\n\
-           [--net <spec>] [--mac <addr>] [-c <cpu>] [-r <ram>]\n\
-           [--no-serial] [--pty]   <config.json>\n\
+           [--net <spec>] [--mac <addr>] [-c <cpus>] [-r <ram>]\n\
+           [--no-serial] [--pty] [--pid-file <path>] [--script <cmd>]\n\
+           <config.json>\n\
         %s --version\n\
         %s -h\n\
 \n\
@@ -788,6 +801,16 @@ int main(int ac, char**av) {
         [spec cloneAllStorage];
     } else if (unlink_me[0]) /* outside of ephemeral unix sockets also use this */
         setup_unlink_handling();
+
+    if (pid_file) {
+	FILE *f = fopen(pid_file, "w");
+	if (f) {
+	    fprintf(f, "%lu\n", (unsigned long) getpid());
+	    fclose(f);
+	    /* Note: it will be unlinked by cleanup() on exit or signal */
+	} else
+	    fprintf(stderr, "WARNING: cannot create pid-file '%s'\n", pid_file);
+    }
 
     [NSApplication sharedApplication];
     NSApp.delegate = main;
