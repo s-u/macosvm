@@ -623,7 +623,7 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
                 if (automount)
                     NSLog(@" + automount share (in /Volumes/My Shared Files)\n");
                 else
-                    NSLog(@" + share, use mount_virtiofs '%@' <mountpoint> in guest OS\n", shareTag);
+                    NSLog(@" + share, run `mount_virtiofs '%@' <mountpoint>` in guest OS to connect\n", shareTag);
                 if (path)
                     url = [NSURL fileURLWithPath:path];
                 if ((tmp = d[@"url"]))
