@@ -517,6 +517,7 @@ int main(int ac, char**av) {
             if (!strcmp(av[i], "--disk") || !strcmp(av[i], "--usb") || !strcmp(av[i], "--aux") || !strcmp(av[i], "--initrd")) {
                 BOOL readOnly = NO;
                 BOOL keep = NO;
+                const char *syncMode = NULL, *cacheMode = NULL;
                 size_t create_size = 0;
                 char *c, *dop;
                 if (++i >= ac) {
@@ -540,6 +541,10 @@ int main(int ac, char**av) {
                             return 1;
                         }
                         create_size = (size_t) sz;
+                    } else if (!strncmp(dop, "sync=", 5)) {
+                        syncMode = dop + 5;
+                    } else if (!strncmp(dop, "cache=", 6)) {
+                        cacheMode = dop + 6;
                     } else {
                         fprintf(stderr, "ERROR: invalid disk option: '%s'\n", dop);
                         return 1;
@@ -569,6 +574,8 @@ int main(int ac, char**av) {
                        av[i - 1] + 2, readOnly ? "read-only" : "read-write", keep ? "keep" : "");
                 if (readOnly) [options addObject:@"readOnly"];
                 if (keep) [options addObject:@"keep"];
+                if (syncMode) [options addObject:[NSString stringWithFormat:@"sync=%s", syncMode]];
+                if (cacheMode) [options addObject:[NSString stringWithFormat:@"cache=%s", cacheMode]];
                 [spec addFileStorage:[NSString stringWithUTF8String:av[i]]
                                 type:[NSString stringWithUTF8String:av[i - 1] + 2]
                              options:options];
@@ -694,7 +701,7 @@ int main(int ac, char**av) {
                         printf("\n\
  Usage: %s [-g|--[no-]gui] [--[no-]audio]\n\
            [--restore <path>] [--ephemeral] [--recovery]\n\
-           [--{disk|usb} <path>[,ro][,size=<spec>][,keep]] [--aux <path>]\n\
+           [--{disk|usb} <path>[,ro][,size=<spec>][,keep][,sync=<full|fsync|none>][,cache=<auto|cached|uncached>]] [--aux <path>]\n\
            [--vol <path>[,ro][,{name=<name>|automount}]]\n\
            [--net <spec>] [--mac <addr>] [-c <cpus>] [-r <ram>]\n\
            [--no-serial] [--pty] [--pid-file <path>] [--script <cmd>]\n\
