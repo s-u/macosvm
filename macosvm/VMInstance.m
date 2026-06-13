@@ -231,8 +231,14 @@
         @"file" : path
     };
     NSMutableDictionary *root = [NSMutableDictionary dictionaryWithDictionary:initial];
-    for (NSString *option in options)
-        [root setValue: @(YES) forKey: option];
+    for (NSString *option in options) {
+        NSRange eq = [option rangeOfString: @"="];
+        if (eq.location == NSNotFound) /* boolean flag, e.g. "readOnly", "keep" */
+            [root setValue: @(YES) forKey: option];
+        else /* key=value, e.g. "sync=none", "cache=cached" */
+            [root setValue: [option substringFromIndex: eq.location + 1]
+                     forKey: [option substringToIndex: eq.location]];
+    }
     storage = storage ? [storage arrayByAddingObject:root] : @[root];
 }
 
@@ -712,8 +718,36 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
             if ([tmp isEqualToString:@"disk"] || [tmp isEqualToString:@"usb"]) {
                 NSError *err = nil;
                 NSURL *imageURL = url ? url : [NSURL fileURLWithPath:path];
-                NSLog(@" + %@ image %@ (%@)", tmp, imageURL, ro ? @"read-only" : @"read-write");
-                VZDiskImageStorageDeviceAttachment *a = [[VZDiskImageStorageDeviceAttachment alloc] initWithURL:imageURL readOnly:ro error:&err];
+                NSString *syncStr  = d[@"sync"];   /* full (default) | fsync | none */
+                NSString *cacheStr = d[@"cache"];  /* auto (default) | cached | uncached */
+                NSLog(@" + %@ image %@ (%@%@%@)", tmp, imageURL, ro ? @"read-only" : @"read-write",
+                      syncStr  ? [@", sync="  stringByAppendingString: syncStr]  : @"",
+                      cacheStr ? [@", cache=" stringByAppendingString: cacheStr] : @"");
+                VZDiskImageStorageDeviceAttachment *a = nil;
+                /* Opt-in: only take the macOS 12+ path when sync= or cache= was requested.
+                   With neither set, behaviour is identical to before (full sync, automatic caching). */
+#if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000)
+                if (syncStr || cacheStr) if (@available(macOS 12.0, *)) {
+                    VZDiskImageSynchronizationMode syncMode = VZDiskImageSynchronizationModeFull;
+                    if ([syncStr isEqualToString:@"none"])  syncMode = VZDiskImageSynchronizationModeNone;
+                    else if ([syncStr isEqualToString:@"fsync"]) syncMode = VZDiskImageSynchronizationModeFsync;
+                    else if (syncStr && ![syncStr isEqualToString:@"full"])
+                        @throw [NSException exceptionWithName:@"VMConfigDiskStorageError"
+                                reason:[@"invalid disk sync mode (want full|fsync|none): " stringByAppendingString:syncStr] userInfo:nil];
+                    VZDiskImageCachingMode cacheMode = VZDiskImageCachingModeAutomatic;
+                    if ([cacheStr isEqualToString:@"cached"])   cacheMode = VZDiskImageCachingModeCached;
+                    else if ([cacheStr isEqualToString:@"uncached"]) cacheMode = VZDiskImageCachingModeUncached;
+                    else if (cacheStr && ![cacheStr isEqualToString:@"auto"] && ![cacheStr isEqualToString:@"automatic"])
+                        @throw [NSException exceptionWithName:@"VMConfigDiskStorageError"
+                                reason:[@"invalid disk cache mode (want auto|cached|uncached): " stringByAppendingString:cacheStr] userInfo:nil];
+                    a = [[VZDiskImageStorageDeviceAttachment alloc] initWithURL:imageURL readOnly:ro
+                                                                    cachingMode:cacheMode
+                                                            synchronizationMode:syncMode
+                                                                          error:&err];
+                }
+#endif
+                if (!a) /* default / pre-12 fallback: unchanged behaviour */
+                    a = [[VZDiskImageStorageDeviceAttachment alloc] initWithURL:imageURL readOnly:ro error:&err];
                 if (err)
                     @throw [NSException exceptionWithName:@"VMConfigDiskStorageError" reason:[err description] userInfo:nil];
                 if ([tmp isEqualToString:@"disk"])
