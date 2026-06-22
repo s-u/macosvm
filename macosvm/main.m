@@ -592,7 +592,7 @@ int main(int ac, char**av) {
                 }
                 if (@available(macOS 13, *))
                     caps13 = ", vol:automount, net:unix:mtu, usb";
-                printf("macosvm %s\n\nCopyright (C) 2022-5 Simon Urbanek\nThere is NO warranty.\nLicenses: GPLv2 or GPLv3\n%s%s\n",
+                printf("macosvm %s\n\nCopyright (C) 2022-6 Simon Urbanek\nThere is NO warranty.\nLicenses: GPLv2 or GPLv3\n%s%s\n",
                        version, caps12, caps13);
                 return 0;
             }
