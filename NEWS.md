@@ -3,6 +3,19 @@
 ### 0.2-3
 * added `--pid-file <path>` argument which writes the process id (pid) of the `macosvm` process into the specified file path before starting the VM and removes it on exit, making it easier to track running VMs if desired.
 
+* added following to options governing the caching and synchronization modes of attached disk images:
+  - `sync=<full|fsync|none>`:
+    - `full` - allways immediate synchronization (default)
+	- `fsync` - synchronizes data to the drive using the system’s best-effort synchronization mode
+	- `none` - disables data synchronization with the permanent storage, the framework can’t safely reuse the disk image on failure.
+  - `cache=<auto|cached|uncached>`:
+    - `auto` - automatic (default, leaves it up to the VM)
+	- `cached` - enables data caching
+	- `uncacehd` - disables data caching
+  Caching and synchronization can be relaxed for speed benefits at the cost of relaibility in case of a panic or crash.
+  
+  Thanks to Amr Mesbah ([PR#42](https://github.com/s-u/macosvm/pull/42))!
+
 ### 0.2-2
 * added `--script` argument which allows to specify a script that should be called then the VM is successfully launched. Additional two arguments are added to the provided script string: the `pid` of the `macosvm` process and the MAC address of the first interface (if is exists). The script is executed via `/bin/bash -c` so the actual call for `--script <script>` will be similar to `/bin/bash -c '<script> <pid> <mac>'` and thus respects `PATH` etc.
 
