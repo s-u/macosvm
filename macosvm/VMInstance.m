@@ -729,14 +729,14 @@ void add_unlink_on_exit(const char *fn); /* from main.m - a bit hacky but more s
 #if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000)
                 if (syncStr || cacheStr) if (@available(macOS 12.0, *)) {
                     VZDiskImageSynchronizationMode syncMode = VZDiskImageSynchronizationModeFull;
-                    if ([syncStr isEqualToString:@"none"])  syncMode = VZDiskImageSynchronizationModeNone;
-                    else if ([syncStr isEqualToString:@"fsync"]) syncMode = VZDiskImageSynchronizationModeFsync;
+                    if (syncStr && [syncStr isEqualToString:@"none"])  syncMode = VZDiskImageSynchronizationModeNone;
+                    else if (syncStr && [syncStr isEqualToString:@"fsync"]) syncMode = VZDiskImageSynchronizationModeFsync;
                     else if (syncStr && ![syncStr isEqualToString:@"full"])
                         @throw [NSException exceptionWithName:@"VMConfigDiskStorageError"
                                 reason:[@"invalid disk sync mode (want full|fsync|none): " stringByAppendingString:syncStr] userInfo:nil];
                     VZDiskImageCachingMode cacheMode = VZDiskImageCachingModeAutomatic;
-                    if ([cacheStr isEqualToString:@"cached"])   cacheMode = VZDiskImageCachingModeCached;
-                    else if ([cacheStr isEqualToString:@"uncached"]) cacheMode = VZDiskImageCachingModeUncached;
+                    if (cacheStr && [cacheStr isEqualToString:@"cached"])   cacheMode = VZDiskImageCachingModeCached;
+                    else if (cacheStr && [cacheStr isEqualToString:@"uncached"]) cacheMode = VZDiskImageCachingModeUncached;
                     else if (cacheStr && ![cacheStr isEqualToString:@"auto"] && ![cacheStr isEqualToString:@"automatic"])
                         @throw [NSException exceptionWithName:@"VMConfigDiskStorageError"
                                 reason:[@"invalid disk cache mode (want auto|cached|uncached): " stringByAppendingString:cacheStr] userInfo:nil];
