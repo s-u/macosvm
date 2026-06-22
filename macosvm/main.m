@@ -701,8 +701,8 @@ int main(int ac, char**av) {
                         printf("\n\
  Usage: %s [-g|--[no-]gui] [--[no-]audio]\n\
            [--restore <path>] [--ephemeral] [--recovery]\n\
-           [--{disk|usb} <path>[,ro][,size=<spec>][,keep][,sync=<full|fsync|none>][,cache=<auto|cached|uncached>]] [--aux <path>]\n\
-           [--vol <path>[,ro][,{name=<name>|automount}]]\n\
+           [--{disk|usb} <path>[,ro][,size=<spec>][,keep][,sync={full|fsync|none}][,cache={auto|cached|uncached}]]\n\
+           [--aux <path>]\n [--vol <path>[,ro][,{name=<name>|automount}]]\n\
            [--net <spec>] [--mac <addr>] [-c <cpus>] [-r <ram>]\n\
            [--no-serial] [--pty] [--pid-file <path>] [--script <cmd>]\n\
            <config.json>\n\
